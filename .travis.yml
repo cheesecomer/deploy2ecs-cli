@@ -5,7 +5,9 @@ python:
   - "3.6"
   - "3.7"
   - "3.8"
+install:
+  - pip install codecov coverage
 script:
-  - python3 -m unittest discover
+  - coverage run -m unittest discover
 after_success:
   codecov
