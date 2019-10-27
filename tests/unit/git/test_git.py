@@ -46,26 +46,22 @@ class TestGit(unittest.TestCase):
         self.patcher.stop()
 
     def test_init(self):
-        """test class of Git#__init__ when git repository
-        """
-        self.mock_run.return_value = StubProcess(stdout=b'true')
+        with self.subTest('When return true'):
+            command = 'git rev-parse --is-inside-work-tree'
+            self.mock_run.return_value = StubProcess(stdout=b'true')
 
-        Git()
-
-        command = 'git rev-parse --is-inside-work-tree'
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
-
-    def test_init_when_not_git_repository(self):
-        """test class of Git#__init__ when not git repository
-        """
-        with self.assertRaises(exceptions.NotGitRepositoryException):
-            process_args = {
-                'returncode': 128,
-                'stderr': self.NOT_GIT_REPOSITORY_ERROR.encode('utf-8')
-            }
-
-            self.mock_run.return_value = StubProcess(**process_args)
             Git()
+
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+        with self.subTest("When not git repository"):
+            with self.assertRaises(exceptions.NotGitRepositoryException):
+                process_args = {
+                    'returncode': 128,
+                    'stderr': self.NOT_GIT_REPOSITORY_ERROR.encode('utf-8')
+                }
+
+                self.mock_run.return_value = StubProcess(**process_args)
+                Git()
 
     def test_head_object(self):
         expect = mimesis.Cryptographic.token_hex()
@@ -91,236 +87,196 @@ class TestGit(unittest.TestCase):
         command = 'git --no-pager name-rev --name-only HEAD'
         self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-
-class TestGitLatestObjectt(unittest.TestCase):
-    """test class of git.py
-    """
-    RUN_OPTION = {
-        'shell': True,
-        'stdout': subprocess.PIPE,
-        'stderr': subprocess.PIPE,
-    }
-
-    def setUp(self):
-        self.patcher = mock.patch('subprocess.run', args=None)
-        self.mock_run = self.patcher.start()
-        self.mock_run.return_value = StubProcess(stdout=b'true')
-
-        self.git = Git()
-        self.expect = mimesis.Cryptographic.token_hex()
-        log = "%s %s" % (self.expect, mimesis.Text().text())
+    def test_latest_object(self):
+        expect = mimesis.Cryptographic.token_hex()
+        log = "%s %s" % (expect, mimesis.Text().text())
         self.mock_run.return_value = \
             StubProcess(stdout=log.encode('utf8'))
 
-    def tearDown(self):
-        self.patcher.stop()
+        with self.subTest("When files and excludes is none"):
+            command = 'git --no-pager log -n 1 --pretty=oneline'
 
-    def test_when_files_and_excludes_is_none(self):
-        actual = self.git.latest_object()
-        self.assertEqual(self.expect, actual)
+            actual = self.git.latest_object()
 
-        command = 'git --no-pager log -n 1 --pretty=oneline'
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-    def test_when_files_is_str(self):
-        file = mimesis.File().file_name()
+        with self.subTest("When files is str"):
+            file = mimesis.File().file_name()
 
-        actual = self.git.latest_object(file)
-        self.assertEqual(self.expect, actual)
+            command = 'git --no-pager log -n 1 --pretty=oneline -- {0}'
+            command = command.format(file)
 
-        command = 'git --no-pager log -n 1 --pretty=oneline -- {0}'
-        command = command.format(file)
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            actual = self.git.latest_object(file)
 
-    def test_when_files_is_list(self):
-        files = [mimesis.File().file_name() for x in range(10)]
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        actual = self.git.latest_object(files)
-        self.assertEqual(self.expect, actual)
+        with self.subTest("When files is list"):
+            files = [mimesis.File().file_name() for x in range(10)]
 
-        command = 'git --no-pager log -n 1 --pretty=oneline -- {0}'
-        command = command.format(" ".join(files))
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            command = 'git --no-pager log -n 1 --pretty=oneline -- {0}'
+            command = command.format(" ".join(files))
 
-    def test_when_excludes_is_str(self):
-        exclude = mimesis.File().file_name()
-        actual = self.git.latest_object(excludes=exclude)
+            actual = self.git.latest_object(files)
 
-        self.assertEqual(self.expect, actual)
-        command = 'git --no-pager log -n 1 --pretty=oneline ":(exclude){0}"'
-        command = command.format(exclude)
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-    def test_when_excludes_is_list(self):
-        excludes = [mimesis.File().file_name() for x in range(10)]
+        with self.subTest("When excludes is str"):
+            exclude = mimesis.File().file_name()
 
-        actual = self.git.latest_object(excludes=excludes)
-        self.assertEqual(self.expect, actual)
-        
-        excludes = ['":(exclude)%s"' % x for x in excludes]
-        command = 'git --no-pager log -n 1 --pretty=oneline {0}'
-        command = command.format(" ".join(excludes))
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            command = 'git --no-pager log -n 1 --pretty=oneline ":(exclude){0}"'
+            command = command.format(exclude)
 
-    def test_when_files_and_excludes_is_list(self):
-        files = [mimesis.File().file_name() for x in range(10)]
-        excludes = [mimesis.File().file_name() for x in range(10)]
-        
-        actual = self.git.latest_object(files, excludes)
-        self.assertEqual(self.expect, actual)
+            actual = self.git.latest_object(excludes=exclude)
 
-        excludes = ['":(exclude)%s"' % x for x in excludes]
-        command = 'git --no-pager log -n 1 --pretty=oneline -- {0} {1}'
-        command = command.format(" ".join(files), " ".join(excludes))
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
+        with self.subTest("When excludes is list"):
+            excludes = [mimesis.File().file_name() for x in range(10)]
 
-class TestGitLatestLog(unittest.TestCase):
-    """test class of git.py
-    """
-    RUN_OPTION = {
-        'shell': True,
-        'stdout': subprocess.PIPE,
-        'stderr': subprocess.PIPE,
-    }
+            git_excludes = ['":(exclude)%s"' % x for x in excludes]
+            command = 'git --no-pager log -n 1 --pretty=oneline {0}'
+            command = command.format(" ".join(git_excludes))
 
-    def setUp(self):
-        self.patcher = mock.patch('subprocess.run', args=None)
-        self.mock_run = self.patcher.start()
-        self.mock_run.return_value = StubProcess(stdout=b'true')
+            actual = self.git.latest_object(excludes=excludes)
 
-        self.git = Git()
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
+        with self.subTest("When files and excludes is list"):
+            files = [mimesis.File().file_name() for x in range(10)]
+            excludes = [mimesis.File().file_name() for x in range(10)]
+            git_excludes = ['":(exclude)%s"' % x for x in excludes]
+            command = 'git --no-pager log -n 1 --pretty=oneline -- {0} {1}'
+            command = command.format(" ".join(files), " ".join(git_excludes))
+
+            actual = self.git.latest_object(files, excludes)
+
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+
+    def test_latest_log(self):
         git_object = mimesis.Cryptographic.token_hex()
-        self.expect = "%s %s" % (git_object, mimesis.Text().text())
+        expect = "%s %s" % (git_object, mimesis.Text().text())
         self.mock_run.return_value = \
-            StubProcess(stdout=self.expect.encode('utf8'))
+            StubProcess(stdout=expect.encode('utf8'))
 
-    def tearDown(self):
-        self.patcher.stop()
+        with self.subTest("When files is none"):
+            command = 'git --no-pager log -n 1'
+            actual = self.git.latest_log()
 
-    def test_when_files_is_none(self):
-        actual = self.git.latest_log()
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        self.assertEqual(self.expect, actual)
-        command = 'git --no-pager log -n 1'
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+        with self.subTest("When files is str"):
+            file = mimesis.File().file_name()
 
-    def test_when_files_is_str(self):
-        file = mimesis.File().file_name()
-        actual = self.git.latest_log(file)
+            command = 'git --no-pager log -n 1 {0}'
+            command = command.format(file)
 
-        self.assertEqual(self.expect, actual)
-        command = 'git --no-pager log -n 1 {0}'
-        command = command.format(file)
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            actual = self.git.latest_log(file)
 
-    def test_when_files_is_list(self):
-        files = [mimesis.File().file_name() for x in range(10)]
-        actual = self.git.latest_log(files)
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        self.assertEqual(self.expect, actual)
-        command = 'git --no-pager log -n 1 {0}'
-        command = command.format(" ".join(files))
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+        with self.subTest("When files is list"):
+            files = [mimesis.File().file_name() for x in range(10)]
 
+            command = 'git --no-pager log -n 1 {0}'
+            command = command.format(" ".join(files))
 
-class TestGitDiffFile(unittest.TestCase):
-    """test class of Git#diff_file
-    """
+            actual = self.git.latest_log(files)
 
-    RUN_OPTION = {
-        'shell': True,
-        'stdout': subprocess.PIPE,
-        'stderr': subprocess.PIPE,
-    }
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-    def setUp(self):
-        self.patcher = mock.patch('subprocess.run', args=None)
-        self.mock_run = self.patcher.start()
-        self.object_a = mimesis.Cryptographic.token_hex()
-        self.object_b = mimesis.Cryptographic.token_hex()
-        self.expect = [mimesis.File().file_name() for x in range(10)]
-
-        self.mock_run.return_value = StubProcess(stdout=b'true')
-        self.git = Git()
+    def test_diff(self):
+        object_a = mimesis.Cryptographic.token_hex()
+        object_b = mimesis.Cryptographic.token_hex()
+        expect = [mimesis.File().file_name() for x in range(10)]
 
         self.mock_run.return_value = \
-            StubProcess(stdout=("\n".join(self.expect)).encode('utf8'))
+            StubProcess(stdout=("\n".join(expect)).encode('utf8'))
 
-    def tearDown(self):
-        self.patcher.stop()
+        with self.subTest("When files is str"):
+            file = mimesis.File().file_name()
 
-    def test_diff_files_when_files_is_str(self):
-        """When files is str and excludes is none should success"""
+            actual = self.git.diff_files(object_a, object_b, file)
+            self.assertEqual(expect, actual)
 
-        file = mimesis.File().file_name()
+            command = 'git --no-pager diff --name-only {0}..{1} -- {2}'
+            command = command.format(object_a, object_b, file)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        actual = self.git.diff_files(self.object_a, self.object_b, file)
-        self.assertEqual(self.expect, actual)
+        with self.subTest("When files is list"):
+            files = [mimesis.File().file_name() for x in range(10)]
 
-        command = 'git --no-pager diff --name-only {0}..{1} -- {2}'
-        command = command.format(self.object_a, self.object_b, file)
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            actual = self.git.diff_files(object_a, object_b, files)
+            self.assertEqual(expect, actual)
 
-    def test_diff_files_when_files_is_list(self):
-        """When files is list and excludes is none should success"""
-        files = [mimesis.File().file_name() for x in range(10)]
+            command = 'git --no-pager diff --name-only {0}..{1} -- {2}'
+            command = command.format(
+                object_a, object_b, " ".join(files))
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        actual = self.git.diff_files(self.object_a, self.object_b, files)
-        self.assertEqual(self.expect, actual)
+        with self.subTest("When excludes is str"):
+            exclude = mimesis.File().file_name()
+            git_exclude = '":(exclude)%s"' % exclude
+            command = 'git --no-pager diff --name-only {0}..{1} {2}'
+            command = command.format(object_a, object_b, git_exclude)
 
-        command = 'git --no-pager diff --name-only {0}..{1} -- {2}'
-        command = command.format(self.object_a, self.object_b, " ".join(files))
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            actual = self.git.diff_files(
+                object_a, object_b, excludes=exclude)
 
-    def test_diff_files_when_excludes_is_str(self):
-        exclude = mimesis.File().file_name()
-        git_exclude = '":(exclude)%s"' % exclude
-        """When files is none and excludes is str should success"""
-        actual = self.git.diff_files(
-            self.object_a, self.object_b, excludes=exclude)
-        self.assertEqual(self.expect, actual)
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        command = 'git --no-pager diff --name-only {0}..{1} {2}'
-        command = command.format(self.object_a, self.object_b, git_exclude)
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+        with self.subTest("When excludes is list"):
+            excludes = [mimesis.File().file_name() for x in range(10)]
+            git_excludes = ['":(exclude)%s"' % x for x in excludes]
+            actual = self.git.diff_files(
+                object_a, object_b, excludes=excludes)
 
-    def test_diff_files_when_excludes_is_list(self):
-        excludes = [mimesis.File().file_name() for x in range(10)]
-        git_excludes = ['":(exclude)%s"' % x for x in excludes]
-        """When files is none and excludes is list should success"""
-        actual = self.git.diff_files(
-            self.object_a, self.object_b, excludes=excludes)
-        self.assertEqual(self.expect, actual)
+            command = 'git --no-pager diff --name-only {0}..{1} {2}'
+            command = command.format(
+                object_a, object_b, " ".join(git_excludes))
 
-        command = 'git --no-pager diff --name-only {0}..{1} {2}'
-        command = command.format(
-            self.object_a, self.object_b, " ".join(git_excludes))
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-    def test_diff_files_when_files_and_excludes_is_str(self):
-        """When files is str and excludes is str should success"""
-        file = mimesis.File().file_name()
-        exclude = mimesis.File().file_name()
-        git_exclude = '":(exclude)%s"' % exclude
-        actual = self.git.diff_files(
-            self.object_a, self.object_b, file, exclude)
-        self.assertEqual(self.expect, actual)
+        with self.subTest("When files and excludes is str"):
+            file = mimesis.File().file_name()
+            exclude = mimesis.File().file_name()
 
-    def test_diff_files_when_files_and_excludes_is_list(self):
-        """When files is list and excludes is list should success"""
-        files = [mimesis.File().file_name() for x in range(10)]
-        excludes = [mimesis.File().file_name() for x in range(10)]
-        git_excludes = ['":(exclude)%s"' % x for x in excludes]
-        actual = self.git.diff_files(
-            self.object_a, self.object_b, files, excludes)
-        self.assertEqual(self.expect, actual)
+            command = 'git --no-pager diff --name-only {0}..{1} -- {2} ":(exclude){3}"'
+            command = command.format(
+                object_a,
+                object_b,
+                file,
+                exclude)
 
-        command = 'git --no-pager diff --name-only {0}..{1} -- {2} {3}'
-        command = command.format(
-            self.object_a,
-            self.object_b,
-            " ".join(files),
-            " ".join(git_excludes))
-        self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+            actual = self.git.diff_files(
+                object_a, object_b, file, exclude)
+
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
+
+        with self.subTest("When files and excludes is list"):
+            files = [mimesis.File().file_name() for x in range(10)]
+            excludes = [mimesis.File().file_name() for x in range(10)]
+            git_excludes = ['":(exclude)%s"' % x for x in excludes]
+            actual = self.git.diff_files(
+                object_a, object_b, files, excludes)
+
+            command = 'git --no-pager diff --name-only {0}..{1} -- {2} {3}'
+            command = command.format(
+                object_a,
+                object_b,
+                " ".join(files),
+                " ".join(git_excludes))
+
+            self.assertEqual(expect, actual)
+            self.mock_run.assert_called_with(command, **self.RUN_OPTION)
