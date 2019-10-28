@@ -10,6 +10,6 @@ install:
   - pip install -r test-requirements.txt
   - pip install codecov
 script:
-  - coverage run -m unittest discover
+  - coverage run --source='.' --omit='*/tests/*','setup.py' -m unittest discover
 after_success:
   codecov

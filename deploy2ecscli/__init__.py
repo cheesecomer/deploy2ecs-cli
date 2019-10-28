@@ -5,5 +5,11 @@
 
 __version__ = '0.0.1'
 
+from deploy2ecscli.log.logger import Logger
+logger = Logger()
+
+from deploy2ecscli.aws.client import Client
+from deploy2ecscli.aws.client import Config
+
 def main():
     pass

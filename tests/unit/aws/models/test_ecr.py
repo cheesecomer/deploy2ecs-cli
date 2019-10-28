@@ -1,8 +1,8 @@
 import unittest
 import mimesis
 
-from deploy2ecscli.aws.models.ecr.image_collection import ImageCollection
-from deploy2ecscli.aws.models.ecr.image import Image
+from deploy2ecscli.aws.models.ecr import Image
+from deploy2ecscli.aws.models.ecr import ImageCollection
 
 
 class TestImageCollection(unittest.TestCase):
@@ -40,6 +40,98 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(json['imageIds'][0]['imageDigest'], actual[0].digest)
         self.assertEqual(json['imageIds'][1]['imageDigest'], actual[1].digest)
         self.assertEqual(json['imageIds'][2]['imageDigest'], actual[2].digest)
+
+    def test_eq(self):
+        json = {
+            'imageIds': [
+                {
+                    'imageTag': mimesis.Path().project_dir(),
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageTag': mimesis.Path().project_dir(),
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageTag': mimesis.Path().project_dir(),
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageTag': None,
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                }
+            ]
+        }
+
+        with self.subTest('When match'):
+            expect = ImageCollection(json)
+            actual = ImageCollection(json)
+
+            self.assertEqual(expect, actual)
+
+        with self.subTest('When not match'):
+            expect = ImageCollection(json)
+            actual = mimesis.Cryptographic.token_hex()
+
+            self.assertNotEqual(expect, actual)
+
+    def test_ne(self):
+        json = {
+            'imageIds': [
+                {
+                    'imageTag': mimesis.Path().project_dir(),
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageTag': mimesis.Path().project_dir(),
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageTag': mimesis.Path().project_dir(),
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageTag': None,
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                }
+            ]
+        }
+
+        expect = ImageCollection(json)
+
+        json = {
+            'imageIds': [
+                {
+                    'imageTag': mimesis.Path().project_dir(),
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageTag': mimesis.Path().project_dir(),
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageTag': mimesis.Path().project_dir(),
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageTag': None,
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                },
+                {
+                    'imageDigest': mimesis.Cryptographic.token_hex()
+                }
+            ]
+        }
+
+        actual = ImageCollection(json)
+
+        self.assertNotEqual(expect, actual)
 
     def test_latest(self):
         expect = {
@@ -129,3 +221,16 @@ class TestImageCollection(unittest.TestCase):
             actual = ImageCollection(json).digest_is(
                 expect['imageDigest'] + 'x')
             self.assertIsNone(actual)
+
+
+class TestImage(unittest.TestCase):
+    def test_init(self):
+        json = {
+            'imageTag': mimesis.Path().project_dir(),
+            'imageDigest': mimesis.Cryptographic.token_hex()
+        }
+
+        actual = Image(json)
+
+        self.assertEqual(json['imageTag'], actual.tag)
+        self.assertEqual(json['imageDigest'], actual.digest)

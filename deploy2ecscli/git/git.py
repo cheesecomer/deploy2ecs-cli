@@ -7,6 +7,7 @@ import subprocess
 
 from typing import List, Union, Optional
 
+from deploy2ecscli import logger
 from deploy2ecscli.git.exceptions import NotGitRepositoryException
 
 
@@ -113,6 +114,9 @@ class Git:
 
     @classmethod
     def __run(cls, command: str):
+        
+        logger.verbose('`%s`' % command)
+
         proc = subprocess.run(command, **cls.__RUN_OPTION)
         result = None
         if proc.returncode == 0:
