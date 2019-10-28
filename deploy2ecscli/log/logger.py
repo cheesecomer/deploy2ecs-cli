@@ -30,7 +30,7 @@ class Logger():
         if not self.__should_print(level):
             return
 
-        cprint("", file=file)
+        cprint('', file=file)
 
     def verbose(
             self,
@@ -63,7 +63,7 @@ class Logger():
         if not self.__should_print(Level.INFO):
             return
 
-        self.__print(msg, "green", file, indent, margin_prefix)
+        self.__print(msg, 'green', file, indent, margin_prefix)
 
     def warn(
             self,
@@ -74,7 +74,7 @@ class Logger():
         if not self.__should_print(Level.WARN):
             return
 
-        self.__print(msg, "yellow", file, indent, margin_prefix)
+        self.__print(msg, 'yellow', file, indent, margin_prefix)
 
     def error(
             self,
@@ -85,7 +85,7 @@ class Logger():
         if not self.__should_print(Level.ERROR):
             return
 
-        self.__print(msg, "red", file, indent, margin_prefix)
+        self.__print(msg, 'red', file, indent, margin_prefix)
 
     def dump_json(self, json: Union[str, dict, list], level: Level = Level.INFO, indent: str = None) -> None:
         if not self.__should_print(level):
@@ -102,10 +102,10 @@ class Logger():
 
         colorful_json = highlight(
             formatted_json,
-            lexers.find_lexer_class("JSON")(),
-            formatters.find_formatter_class("terminal")())
+            lexers.find_lexer_class('JSON')(),
+            formatters.find_formatter_class('terminal')())
 
-        self.__print(colorful_json, None, None, indent, "")
+        self.__print(colorful_json, None, None, indent, '')
 
     def dump_diff(self, diff: str, level: Level = Level.INFO, indent: str = None) -> None:
         if not self.__should_print(level):
@@ -113,10 +113,10 @@ class Logger():
 
         colorful_diff = highlight(
             diff,
-            lexers.find_lexer_class("Diff")(),
-            formatters.find_formatter_class("terminal")())
+            lexers.find_lexer_class('Diff')(),
+            formatters.find_formatter_class('terminal')())
 
-        self.__print(colorful_diff, None, None, indent, "")
+        self.__print(colorful_diff, None, None, indent, '')
 
         pass
 
@@ -128,14 +128,14 @@ class Logger():
 
         for key, value in (params or {}).items():
             if type(value) == list:
-                value = " ".join(str(value))
+                value = ' '.join(str(value))
 
-            serialized_params.append("--{0} {1}".format(key, value))
+            serialized_params.append('--{0} {1}'.format(key, value))
 
         line_separator = \
-            "--------------------------------------------------------------------------------"
-        msg = "`aws {0} {1} {2}`"
-        msg = msg.format(resource, action, " ".join(serialized_params))
+            '--------------------------------------------------------------------------------'
+        msg = '`aws {0} {1} {2}`'
+        msg = msg.format(resource, action, ' '.join(serialized_params))
 
         if body is not None or response is not None:
             self.verbose(line_separator)
@@ -143,10 +143,10 @@ class Logger():
         self.verbose(msg)
 
         if body is not None:
-            self.dump_json(body, level=Level.VERBOSE, indent="< ")
+            self.dump_json(body, level=Level.VERBOSE, indent='< ')
 
         if response is not None:
-            self.dump_json(response, level=Level.VERBOSE, indent="> ")
+            self.dump_json(response, level=Level.VERBOSE, indent='> ')
 
         if body is not None or response is not None:
             self.verbose(line_separator)
@@ -166,22 +166,22 @@ class Logger():
             margin_prefix: Optional[str]) -> None:
 
         lines = msg.splitlines()
-        indent = indent or ""
+        indent = indent or ''
         if len(lines) == 1:
             cprint(indent + msg, color, file=file)
             return
 
         if margin_prefix:
             regex = re.compile(
-                r"^\s*" + margin_prefix.replace("|", r"\|") + "?")
+                r'^\s*' + margin_prefix.replace('|', r'\|') + '?')
         else:
             presence_lines = \
                 [(i, v) for i, v in enumerate(lines) if len(v) > 0]
             first_line = next(iter(presence_lines))
-            remove_indet = re.search(r"^\s*", first_line[1]).group()
-            regex = re.compile("^{0}".format(remove_indet))
+            remove_indet = re.search(r'^\s*', first_line[1]).group()
+            regex = re.compile('^{0}'.format(remove_indet))
 
-        lines = [regex.sub("", line) for line in lines]
+        lines = [regex.sub('', line) for line in lines]
 
         # Remove blank lines from head and tail
         presence_indexes = [i for i, v in enumerate(lines) if len(v) > 0]
@@ -195,4 +195,4 @@ class Logger():
     def __json_serial(self, obj):
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
-        raise TypeError("Type %s not serializable" % type(obj))
+        raise TypeError('Type %s not serializable' % type(obj))

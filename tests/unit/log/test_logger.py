@@ -366,7 +366,7 @@ class TestLogger(unittest.TestCase):
                 |
                 |  ===="""
                 msg = mimesis.Text().sentence()
-                method(msg_format.format(msg), margin_prefix="|")
+                method(msg_format.format(msg), margin_prefix='|')
 
                 if not should_print:
                     mock_cprint.assert_not_called()
