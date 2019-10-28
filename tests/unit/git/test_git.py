@@ -8,7 +8,6 @@ import dataclasses
 
 import unittest
 from unittest import mock
-from unittest.mock import ANY
 
 import mimesis
 
@@ -58,6 +57,26 @@ class TestGit(unittest.TestCase):
                 process_args = {
                     'returncode': 128,
                     'stderr': self.NOT_GIT_REPOSITORY_ERROR.encode('utf-8')
+                }
+
+                self.mock_run.return_value = StubProcess(**process_args)
+                Git()
+
+        with self.subTest('When command not found'):
+            with self.assertRaises(Exception):
+                process_args = {
+                    'returncode': 127,
+                    'stderr': 'git: command not found'.encode('utf-8')
+                }
+
+                self.mock_run.return_value = StubProcess(**process_args)
+                Git()
+
+        with self.subTest('When command not found'):
+            with self.assertRaises(Exception):
+                process_args = {
+                    'returncode': 1,
+                    'stderr': None
                 }
 
                 self.mock_run.return_value = StubProcess(**process_args)
