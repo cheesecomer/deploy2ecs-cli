@@ -1,2 +1,3 @@
 termcolor
 pygments
+boto3

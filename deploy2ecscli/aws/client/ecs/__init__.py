@@ -3,4 +3,4 @@
 # -*- coding: utf-8 -*-
 # vi: set ft=python :
 
-from .service import Service
+from .client import Client
