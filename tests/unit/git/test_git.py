@@ -53,7 +53,7 @@ class TestGit(unittest.TestCase):
             Git()
 
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
-        with self.subTest("When not git repository"):
+        with self.subTest('When not git repository'):
             with self.assertRaises(exceptions.NotGitRepositoryException):
                 process_args = {
                     'returncode': 128,
@@ -89,11 +89,11 @@ class TestGit(unittest.TestCase):
 
     def test_latest_object(self):
         expect = mimesis.Cryptographic.token_hex()
-        log = "%s %s" % (expect, mimesis.Text().text())
+        log = '%s %s' % (expect, mimesis.Text().text())
         self.mock_run.return_value = \
             StubProcess(stdout=log.encode('utf8'))
 
-        with self.subTest("When files and excludes is none"):
+        with self.subTest('When files and excludes is none'):
             command = 'git --no-pager log -n 1 --pretty=oneline'
 
             actual = self.git.latest_object()
@@ -101,7 +101,7 @@ class TestGit(unittest.TestCase):
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When files is str"):
+        with self.subTest('When files is str'):
             file = mimesis.File().file_name()
 
             command = 'git --no-pager log -n 1 --pretty=oneline -- {0}'
@@ -112,18 +112,18 @@ class TestGit(unittest.TestCase):
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When files is list"):
+        with self.subTest('When files is list'):
             files = [mimesis.File().file_name() for x in range(10)]
 
             command = 'git --no-pager log -n 1 --pretty=oneline -- {0}'
-            command = command.format(" ".join(files))
+            command = command.format(' '.join(files))
 
             actual = self.git.latest_object(files)
 
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When excludes is str"):
+        with self.subTest('When excludes is str'):
             exclude = mimesis.File().file_name()
 
             command = 'git --no-pager log -n 1 --pretty=oneline ":(exclude){0}"'
@@ -134,24 +134,24 @@ class TestGit(unittest.TestCase):
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When excludes is list"):
+        with self.subTest('When excludes is list'):
             excludes = [mimesis.File().file_name() for x in range(10)]
 
             git_excludes = ['":(exclude)%s"' % x for x in excludes]
             command = 'git --no-pager log -n 1 --pretty=oneline {0}'
-            command = command.format(" ".join(git_excludes))
+            command = command.format(' '.join(git_excludes))
 
             actual = self.git.latest_object(excludes=excludes)
 
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When files and excludes is list"):
+        with self.subTest('When files and excludes is list'):
             files = [mimesis.File().file_name() for x in range(10)]
             excludes = [mimesis.File().file_name() for x in range(10)]
             git_excludes = ['":(exclude)%s"' % x for x in excludes]
             command = 'git --no-pager log -n 1 --pretty=oneline -- {0} {1}'
-            command = command.format(" ".join(files), " ".join(git_excludes))
+            command = command.format(' '.join(files), ' '.join(git_excludes))
 
             actual = self.git.latest_object(files, excludes)
 
@@ -160,18 +160,18 @@ class TestGit(unittest.TestCase):
 
     def test_latest_log(self):
         git_object = mimesis.Cryptographic.token_hex()
-        expect = "%s %s" % (git_object, mimesis.Text().text())
+        expect = '%s %s' % (git_object, mimesis.Text().text())
         self.mock_run.return_value = \
             StubProcess(stdout=expect.encode('utf8'))
 
-        with self.subTest("When files is none"):
+        with self.subTest('When files is none'):
             command = 'git --no-pager log -n 1'
             actual = self.git.latest_log()
 
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When files is str"):
+        with self.subTest('When files is str'):
             file = mimesis.File().file_name()
 
             command = 'git --no-pager log -n 1 {0}'
@@ -182,11 +182,11 @@ class TestGit(unittest.TestCase):
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When files is list"):
+        with self.subTest('When files is list'):
             files = [mimesis.File().file_name() for x in range(10)]
 
             command = 'git --no-pager log -n 1 {0}'
-            command = command.format(" ".join(files))
+            command = command.format(' '.join(files))
 
             actual = self.git.latest_log(files)
 
@@ -199,9 +199,9 @@ class TestGit(unittest.TestCase):
         expect = [mimesis.File().file_name() for x in range(10)]
 
         self.mock_run.return_value = \
-            StubProcess(stdout=("\n".join(expect)).encode('utf8'))
+            StubProcess(stdout=('\n'.join(expect)).encode('utf8'))
 
-        with self.subTest("When files is str"):
+        with self.subTest('When files is str'):
             file = mimesis.File().file_name()
 
             actual = self.git.diff_files(object_a, object_b, file)
@@ -211,7 +211,7 @@ class TestGit(unittest.TestCase):
             command = command.format(object_a, object_b, file)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When files is list"):
+        with self.subTest('When files is list'):
             files = [mimesis.File().file_name() for x in range(10)]
 
             actual = self.git.diff_files(object_a, object_b, files)
@@ -219,10 +219,10 @@ class TestGit(unittest.TestCase):
 
             command = 'git --no-pager diff --name-only {0}..{1} -- {2}'
             command = command.format(
-                object_a, object_b, " ".join(files))
+                object_a, object_b, ' '.join(files))
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When excludes is str"):
+        with self.subTest('When excludes is str'):
             exclude = mimesis.File().file_name()
             git_exclude = '":(exclude)%s"' % exclude
             command = 'git --no-pager diff --name-only {0}..{1} {2}'
@@ -234,7 +234,7 @@ class TestGit(unittest.TestCase):
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When excludes is list"):
+        with self.subTest('When excludes is list'):
             excludes = [mimesis.File().file_name() for x in range(10)]
             git_excludes = ['":(exclude)%s"' % x for x in excludes]
             actual = self.git.diff_files(
@@ -242,12 +242,12 @@ class TestGit(unittest.TestCase):
 
             command = 'git --no-pager diff --name-only {0}..{1} {2}'
             command = command.format(
-                object_a, object_b, " ".join(git_excludes))
+                object_a, object_b, ' '.join(git_excludes))
 
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When files and excludes is str"):
+        with self.subTest('When files and excludes is str'):
             file = mimesis.File().file_name()
             exclude = mimesis.File().file_name()
 
@@ -264,7 +264,7 @@ class TestGit(unittest.TestCase):
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
 
-        with self.subTest("When files and excludes is list"):
+        with self.subTest('When files and excludes is list'):
             files = [mimesis.File().file_name() for x in range(10)]
             excludes = [mimesis.File().file_name() for x in range(10)]
             git_excludes = ['":(exclude)%s"' % x for x in excludes]
@@ -275,8 +275,8 @@ class TestGit(unittest.TestCase):
             command = command.format(
                 object_a,
                 object_b,
-                " ".join(files),
-                " ".join(git_excludes))
+                ' '.join(files),
+                ' '.join(git_excludes))
 
             self.assertEqual(expect, actual)
             self.mock_run.assert_called_with(command, **self.RUN_OPTION)
