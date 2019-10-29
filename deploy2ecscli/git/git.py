@@ -8,6 +8,7 @@ import subprocess
 from typing import List, Union, Optional
 
 from deploy2ecscli import logger
+from deploy2ecscli.log import Level as LogLevel
 from deploy2ecscli.git.exceptions import NotGitRepositoryException
 
 
@@ -87,6 +88,19 @@ class Git:
         result = self.__run(command.format(a, b, files, excludes))
         return result.splitlines()
 
+    def print_diff(self, a, b, files=None, excludes=None) -> None:
+        files = self.__to_git_files(files)
+        excludes = self.__to_git_exclude(excludes)
+
+        command = 'git --no-pager diff {0}..{1}'
+        command = command.format(a, b)
+        command = (command + ' ' + files).strip()
+        command = (command + ' ' + excludes).strip()
+        command = command.strip()
+        diff = self.__run(command)
+
+        logger.dump_diff(diff, level=LogLevel.VERBOSE)
+
     @classmethod
     def __to_git_files(cls, files: Union[str, list, None] = None) -> str:
         files = files or []
@@ -114,7 +128,7 @@ class Git:
 
     @classmethod
     def __run(cls, command: str):
-        
+
         logger.verbose('`%s`' % command)
 
         proc = subprocess.run(command, **cls.__RUN_OPTION)

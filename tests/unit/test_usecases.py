@@ -157,7 +157,7 @@ class TestBuildImageUseCase(unittest.TestCase):
 
                 git_client = stack.enter_context(MagicMock())
                 git_client.latest_object.return_value = latest_object
-                git_client.modified_files.return_value = []
+                git_client.diff_files.return_value = []
 
                 docker_client, _ = setup_docker_client(stack)
 
@@ -356,7 +356,7 @@ class TestBuildImageUseCase(unittest.TestCase):
 
                 git_client = stack.enter_context(MagicMock())
                 git_client.latest_object.return_value = latest_object
-                git_client.modified_files.return_value = \
+                git_client.diff_files.return_value = \
                     [mimesis.File().file_name() for x in range(10)]
 
                 docker_client, docker_image = setup_docker_client(stack)
@@ -589,7 +589,7 @@ class TestBuildImageUseCase(unittest.TestCase):
 
                 git_client = stack.enter_context(MagicMock())
                 git_client.latest_object.return_value = latest_object
-                git_client.modified_files.return_value = \
+                git_client.diff_files.return_value = \
                     [mimesis.File().file_name() for x in range(10)]
 
                 docker_client, docker_image = setup_docker_client(stack)
