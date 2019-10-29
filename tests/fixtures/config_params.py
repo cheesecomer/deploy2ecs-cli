@@ -33,7 +33,7 @@ def bindable_image(excludes=[]) -> dict:
     return result
 
 
-def task_definition(images=None) -> dict:
+def task_definition(images=None, exclude_repository_name: bool = False) -> dict:
     bindable_images = []
     if not images:
         images = [image() for x in range(10)]
@@ -41,6 +41,8 @@ def task_definition(images=None) -> dict:
     for bindable_image in images:
         bindable_image = bindable_image.copy()
         bindable_image['bind_valiable'] = mimesis.Person().username()
+        if exclude_repository_name:
+            bindable_image.pop('repository_name')
 
         bindable_images.append(bindable_image)
 

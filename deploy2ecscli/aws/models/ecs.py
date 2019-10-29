@@ -85,7 +85,7 @@ class TaskDefinition():
             [ContainerDefinition(x) for x in container_definitions]
 
         object.__setattr__(self, 'family', task_definition['family'])
-        object.__setattr__(self, 'arn', task_definition['taskDefinitionArn'])
+        object.__setattr__(self, 'arn', task_definition.get('taskDefinitionArn'))
         object.__setattr__(self, 'revision', revision)
         object.__setattr__(
             self,
