@@ -27,7 +27,9 @@ from deploy2ecscli.aws.models.ecs import Service as EcsService
 
 
 class BuildImageUseCase():
-    def __init__(self, config: ApplicationConfig, aws_client: AwsClient, git_client: Git, force_update: bool, dyr_run: bool, additional_tags: List[str]):
+    def __init__(self, config: ApplicationConfig, aws_client: AwsClient,
+                 git_client: Git, force_update: bool, dyr_run: bool,
+                 additional_tags: List[str]):
         self.__config = config
         self.__aws = aws_client
         self.__git = git_client
@@ -168,7 +170,8 @@ class BuildImageUseCase():
         log.newline(level=LogLevel.VERBOSE)
         log.newline(level=LogLevel.VERBOSE)
 
-    def __get_builded_at(self, config: ImageConfig, images: ImageCollection, current_commit: str, latest_dependency_commit: str) -> bool:
+    def __get_builded_at(self, config: ImageConfig, images: ImageCollection,
+                         current_commit: str, latest_dependency_commit: str) -> bool:
         if images.find_by_tag(latest_dependency_commit) is not None:
             msg = '    {0} is already builded. ({1})'
             log.newline()
@@ -201,8 +204,9 @@ class BuildImageUseCase():
             log.warn(msg.format(config.repository_name, latest_image_commit))
             return None
 
-        modified_files = self.__git.modified_files(
-            latest_image_commit, current_commit, config.dependencies, config.excludes)
+        modified_files = self.__git.diff_files(
+            latest_image_commit, current_commit,
+            config.dependencies, config.excludes)
         should_build = len(modified_files) != 0
         if should_build:
             msg = """
