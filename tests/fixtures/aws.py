@@ -42,3 +42,20 @@ def task_definition(images=[]):
             }
         ]
     }
+
+
+def service(status=None, task_definition=None):
+    tag_keys = [mimesis.File().file_name() for x in range(10)]
+    tag_values = [mimesis.Cryptographic.token_hex() for x in range(10)]
+    tag_pairs = list(zip(tag_keys, tag_values))
+
+    if not task_definition:
+        task_definition = mimesis.Cryptographic.token_hex()
+
+    return {
+        'taskDefinition': task_definition,
+        'desiredCount': str(mimesis.random.Random().randints(1, 1, 10)[0]),
+        'serviceArn': mimesis.Cryptographic.token_hex(),
+        'status': status,
+        'tags': [{'key': key, 'value': value} for key, value in tag_pairs]
+    }

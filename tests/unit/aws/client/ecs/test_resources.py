@@ -40,8 +40,10 @@ class TestService(unittest.TestCase):
             subject = Service(mock_client)
             subject.update(service_name, params)
 
+            expect_params = params.copy()
+            expect_params.pop('status')
             mock_client.update_service.assert_called_with(
-                service=service_name, **params)
+                service=service_name, **expect_params)
 
         mock_client.reset_mock()
 
@@ -57,8 +59,10 @@ class TestService(unittest.TestCase):
             subject = Service(mock_client)
             subject.update(service_name, params, force_new_deployment=True)
 
+            expect_params = params.copy()
+            expect_params.pop('status')
             mock_client.update_service.assert_called_with(
-                service=service_name, forceNewDeployment=True, **params)
+                service=service_name, forceNewDeployment=True, **expect_params)
 
         mock_client.reset_mock()
 

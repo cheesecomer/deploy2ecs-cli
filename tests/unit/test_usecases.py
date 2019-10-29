@@ -10,10 +10,12 @@ import mimesis
 from deploy2ecscli.aws.models.ecr import ImageCollection
 from deploy2ecscli.aws.models.ecs import Task
 from deploy2ecscli.aws.models.ecs import TaskDefinition
+from deploy2ecscli.aws.models.ecs import Service
 from deploy2ecscli.exceptions import TaskFailedException
-from deploy2ecscli.use_cases import RunTaskUseCase
-from deploy2ecscli.use_cases import BuildImageUseCase
-from deploy2ecscli.use_cases import RegisterTaskDefinitionUseCase
+from deploy2ecscli.usecases import RunTaskUseCase
+from deploy2ecscli.usecases import BuildImageUseCase
+from deploy2ecscli.usecases import RegisterTaskDefinitionUseCase
+from deploy2ecscli.usecases import RegisterServiceUseCase
 
 from deploy2ecscli.git import Git
 from deploy2ecscli.config import Application as ApplicationConfig
@@ -884,7 +886,6 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             task_definition = aws_client.ecs.task_definition
             task_definition.register.assert_not_called()
 
-
         with self.subTest('When force update'):
             aws_task_definition = aws_fixtures.task_definition()
 
@@ -909,6 +910,372 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             # Should register task_definition
             task_definition = aws_client.ecs.task_definition
             task_definition.register.assert_called_with(aws_task_definition)
+
+
+class TestRegisterServiceUseCase(unittest.TestCase):
+    def test_init(self):
+        config = MagicMock()
+        aws_client = MagicMock()
+        git_client = MagicMock()
+
+        RegisterServiceUseCase(config, aws_client, git_client, False)
+
+    def test_execute(self):
+        def setup_service_confg(render_json=None):
+            if not render_json:
+                render_json = aws_fixtures.service()
+
+            service_confg = MagicMock()
+            service_confg.name = \
+                mimesis.Person().username()
+            service_confg.task_family = \
+                mimesis.Person().username()
+            service_confg.cluster = \
+                mimesis.Person().username()
+            service_confg.render_json.return_value = render_json
+            service_confg.before_deploy.tasks = None
+
+            return service_confg
+
+        with self.subTest('When active service not exists'):
+            request_json = aws_fixtures.service()
+            config = MagicMock()
+            config.services = [
+                setup_service_confg(render_json=request_json)
+            ]
+
+            aws_client = MagicMock()
+            aws_client.ecs.service.describe.return_value = [
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service())
+            ]
+
+            git_client = MagicMock()
+
+            subject = RegisterServiceUseCase(
+                config, aws_client, git_client, False)
+            subject.execute()
+
+            ##################################################################
+            # Should create service
+            service = aws_client.ecs.service
+            service.create.assert_called_with(request_json)
+
+        with self.subTest('When task definition revision unmatch'):
+            request_json = aws_fixtures.service()
+            config = MagicMock()
+            config.services = [
+                setup_service_confg(render_json=request_json)
+            ]
+
+            active_service = Service(aws_fixtures.service(status='ACTIVE'))
+
+            aws_client = MagicMock()
+            aws_client.ecs.service.describe.return_value = [
+                active_service,
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service())
+            ]
+
+            git_client = MagicMock()
+
+            subject = RegisterServiceUseCase(
+                config, aws_client, git_client, False)
+            subject.execute()
+
+            ##################################################################
+            # Should not create service
+            service = aws_client.ecs.service
+            service.create.assert_not_called()
+
+            ##################################################################
+            # Should update service
+            service = aws_client.ecs.service
+            service.update.assert_called_with(
+                active_service.arn, request_json, False)
+
+            ##################################################################
+            # Should update tag
+            tag = aws_client.ecs.tag
+            tag.update.assert_called_with(
+                active_service.arn, request_json['tags'])
+
+        with self.subTest('When JSON_COMMIT_HASH missing'):
+            request_json = aws_fixtures.service()
+            config = MagicMock()
+            config.services = [
+                setup_service_confg(render_json=request_json)
+            ]
+
+            active_service = \
+                Service(aws_fixtures.service(
+                    status='ACTIVE',
+                    task_definition=request_json['taskDefinition']))
+
+            aws_client = MagicMock()
+            aws_client.ecs.service.describe.return_value = [
+                active_service,
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service())
+            ]
+
+            git_client = MagicMock()
+
+            subject = RegisterServiceUseCase(
+                config, aws_client, git_client, False)
+            subject.execute()
+
+            ##################################################################
+            # Should not create service
+            service = aws_client.ecs.service
+            service.create.assert_not_called()
+
+            ##################################################################
+            # Should update service
+            service = aws_client.ecs.service
+            service.update.assert_called_with(
+                active_service.arn, request_json, False)
+
+            ##################################################################
+            # Should update tag
+            tag = aws_client.ecs.tag
+            tag.update.assert_called_with(
+                active_service.arn, request_json['tags'])
+
+        with self.subTest('When JSON_COMMIT_HASH unmatch'):
+            request_json = aws_fixtures.service()
+            request_json['tags'].append({
+                'key': 'JSON_COMMIT_HASH',
+                'value': mimesis.Cryptographic().token_hex()
+            })
+
+            active_service_json = \
+                aws_fixtures.service(
+                    status='ACTIVE',
+                    task_definition=request_json['taskDefinition'])
+            active_service_json['tags'].append({
+                'key': 'JSON_COMMIT_HASH',
+                'value': mimesis.Cryptographic().token_hex()
+            })
+
+            config = MagicMock()
+            config.services = [
+                setup_service_confg(render_json=request_json)
+            ]
+
+            active_service = Service(active_service_json)
+
+            aws_client = MagicMock()
+            aws_client.ecs.service.describe.return_value = [
+                active_service,
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service())
+            ]
+
+            subject = RegisterServiceUseCase(
+                config, aws_client, git_client, False)
+            subject.execute()
+
+            ##################################################################
+            # Should not create service
+            service = aws_client.ecs.service
+            service.create.assert_not_called()
+
+            ##################################################################
+            # Should update service
+            service = aws_client.ecs.service
+            service.update.assert_called_with(
+                active_service.arn, request_json, False)
+
+            ##################################################################
+            # Should update tag
+            tag = aws_client.ecs.tag
+            tag.update.assert_called_with(
+                active_service.arn, request_json['tags'])
+
+        with self.subTest('When JSON_COMMIT_HASH match'):
+            object_hash = mimesis.Cryptographic().token_hex()
+            request_json = aws_fixtures.service()
+            request_json['tags'].append({
+                'key': 'JSON_COMMIT_HASH',
+                'value': object_hash
+            })
+
+            active_service_json = \
+                aws_fixtures.service(
+                    status='ACTIVE',
+                    task_definition=request_json['taskDefinition'])
+            active_service_json['tags'].append({
+                'key': 'JSON_COMMIT_HASH',
+                'value': object_hash
+            })
+
+            config = MagicMock()
+            config.services = [
+                setup_service_confg(render_json=request_json)
+            ]
+
+            active_service = Service(active_service_json)
+
+            aws_client = MagicMock()
+            aws_client.ecs.service.describe.return_value = [
+                active_service,
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service())
+            ]
+
+            subject = RegisterServiceUseCase(
+                config, aws_client, git_client, False)
+            subject.execute()
+
+            ##################################################################
+            # Should not create service
+            service = aws_client.ecs.service
+            service.create.assert_not_called()
+
+            ##################################################################
+            # Should not update service
+            service = aws_client.ecs.service
+            service.update.assert_not_called()
+
+            ##################################################################
+            # Should not update tag
+            tag = aws_client.ecs.tag
+            tag.update.assert_not_called()
+
+        with self.subTest('When force update with active service'):
+            request_json = aws_fixtures.service()
+
+            config = MagicMock()
+            config.services = [
+                setup_service_confg(render_json=request_json)
+            ]
+
+            active_service = \
+                Service(aws_fixtures.service(status='ACTIVE'))
+
+            aws_client = MagicMock()
+            aws_client.ecs.service.describe.return_value = [
+                active_service,
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service())
+            ]
+
+            subject = RegisterServiceUseCase(
+                config, aws_client, git_client, True)
+            subject.execute()
+
+            ##################################################################
+            # Should not create service
+            service = aws_client.ecs.service
+            service.create.assert_not_called()
+
+            ##################################################################
+            # Should update service
+            service = aws_client.ecs.service
+            service.update.assert_called_with(
+                active_service.arn, request_json, True)
+
+            ##################################################################
+            # Should update tag
+            tag = aws_client.ecs.tag
+            tag.update.assert_called_with(
+                active_service.arn, request_json['tags'])
+
+        with self.subTest('When force update without active service'):
+            request_json = aws_fixtures.service()
+
+            config = MagicMock()
+            config.services = [
+                setup_service_confg(render_json=request_json)
+            ]
+
+            active_service = \
+                Service(aws_fixtures.service(status='ACTIVE'))
+
+            aws_client = MagicMock()
+            aws_client.ecs.service.describe.return_value = [
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service()),
+                Service(aws_fixtures.service())
+            ]
+
+            subject = RegisterServiceUseCase(
+                config, aws_client, git_client, True)
+            subject.execute()
+
+            ##################################################################
+            # Should create service
+            service = aws_client.ecs.service
+            service.create.assert_called_with(request_json)
+
+            ##################################################################
+            # Should not update service
+            service = aws_client.ecs.service
+            service.update.assert_not_called()
+
+            ##################################################################
+            # Should not update tag
+            tag = aws_client.ecs.tag
+            tag.update.assert_not_called()
+
+        with self.subTest('When with before deploy'):
+            with ExitStack() as stack:
+                mock_runtask = stack.enter_context(
+                    mock.patch('deploy2ecscli.usecases.RunTaskUseCase'))
+                request_json = aws_fixtures.service()
+
+                config = MagicMock()
+                config.services = [
+                    setup_service_confg(render_json=request_json)
+                ]
+
+                config.services[0].before_deploy.tasks = [
+                    MagicMock()
+                ]
+
+                aws_client = MagicMock()
+                aws_client.ecs.service.describe.return_value = [ ]
+
+                subject = RegisterServiceUseCase(
+                    config, aws_client, git_client, True)
+                subject.execute()
+
+                ##############################################################
+                # Should not create service
+                instance = mock_runtask.return_value
+                instance.execute.assert_called()
+
+                ##############################################################
+                # Should create service
+                service = aws_client.ecs.service
+                service.create.assert_called_with(request_json)
+
+                ##############################################################
+                # Should not update service
+                service = aws_client.ecs.service
+                service.update.assert_not_called()
+
+                ##############################################################
+                # Should not update tag
+                tag = aws_client.ecs.tag
+                tag.update.assert_not_called()
+
 
 class TestRunTaskUseCase(unittest.TestCase):
     def test_execute(self):

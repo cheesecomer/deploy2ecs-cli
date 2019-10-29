@@ -19,8 +19,22 @@ class Service():
         self.__config = config or Config.default
 
     def update(self, service: str, options: dict, force_new_deployment: bool = False) -> ServiceModel:
+        accept_keys = [
+            'cluster',
+            'service',
+            'desiredCount',
+            'taskDefinition',
+            'deploymentConfiguration',
+            'networkConfiguration',
+            'platformVersion',
+            'forceNewDeployment',
+            'healthCheckGracePeriodSeconds'
+        ]
+
+        options = options.items()
+        options = {k: v for k, v in options if k in accept_keys}
+
         params = {'service': service}
-        options = options.copy()
 
         if force_new_deployment:
             options['forceNewDeployment'] = force_new_deployment

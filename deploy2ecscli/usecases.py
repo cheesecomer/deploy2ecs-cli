@@ -18,10 +18,12 @@ from deploy2ecscli.config import Application as ApplicationConfig
 from deploy2ecscli.config import Task as TaskConfig
 from deploy2ecscli.config import Image as ImageConfig
 from deploy2ecscli.config import TaskDefinition as TaskDefinitionConfig
+from deploy2ecscli.config import Service as ServiceConfig
 from deploy2ecscli.aws.client import Client as AwsClient
 from deploy2ecscli.aws.models.ecs import Container
 from deploy2ecscli.aws.models.ecr import ImageCollection
 from deploy2ecscli.aws.models.ecs import TaskDefinition as EcsTaskDefinition
+from deploy2ecscli.aws.models.ecs import Service as EcsService
 
 
 class BuildImageUseCase():
@@ -410,6 +412,166 @@ class RegisterTaskDefinitionUseCase():
             log.newline()
 
         return shoud_update
+
+
+class RegisterServiceUseCase():
+
+    def __init__(self, config: ApplicationConfig, aws_client: AwsClient, git_client: Git, force_update: bool):
+        self.__config = config
+        self.__aws = aws_client
+        self.__git = git_client
+        self.__force_update = force_update
+
+    def execute(self):
+        msg = """
+        ################################################################################
+        ##
+        ##  Register services !!!
+        ##
+        ################################################################################"""
+        log.info(msg)
+
+        for service_config in self.__config.services:
+            msg = """
+            |  ==============================================================================
+            |    Service : {0}
+            |  =============================================================================="""
+            log.info(msg.format(service_config.name), margin_prefix='|')
+            self.__register_service(service_config)
+
+    def __register_service(self, config: ServiceConfig) -> None:
+        latest_task_definition = \
+            self.__aws.ecs.task_definition.describe(config.task_family)
+        json_latest_commit = self.__git.latest_commit(config.json_template)
+
+        bind_valiables = {
+            'TASK_DEFINITION_ARN': latest_task_definition.arn,
+            'JSON_COMMIT_HASH': json_latest_commit or self.__git.latest_commit()
+        }
+
+        json = config.render_json(bind_valiables)
+        service = EcsService(json)
+
+        if self.__force_update:
+            log.newline()
+            log.warn('    Will do a force update')
+            log.newline()
+
+        services = \
+            self.__aws.ecs.service.describe(
+                config.name,
+                cluster=config.cluster,
+                include_tags=True)
+        services = services or {}
+        services = (x for x in services if x.status == 'ACTIVE')
+        active_service = next(services, None)
+
+        should_register = self.__force_update or \
+            self.__diff_service(
+                service,
+                active_service,
+                config.json_template)
+
+        if not should_register:
+            return
+
+        if config.before_deploy is not None:
+            msg = """
+            |    ****************************************************************************
+            |      Before deploy
+            |    ****************************************************************************"""
+            log.info(msg, margin_prefix='|')
+
+            self.__execute_tasks_before_deploy(config, json)
+            log.newline()
+            log.newline()
+
+        msg = """
+        |    ****************************************************************************
+        |      Deploy !
+        |
+        |        Task definition ARN
+        |          {0}
+        |        Configuration updated at
+        |          {1} 
+        |    ****************************************************************************"""
+        msg = msg.format(latest_task_definition.arn,
+                         bind_valiables['JSON_COMMIT_HASH'])
+        log.info(msg, margin_prefix='|')
+        if active_service is not None:
+            self.__updater_service(active_service, json)
+        else:
+            self.__aws.ecs.service.create(json)
+
+        log.newline()
+        log.info('      Success !')
+        log.newline()
+
+    def __execute_tasks_before_deploy(self, config: ServiceConfig, json: dict) -> None:
+        if not config.before_deploy.tasks:
+            return
+
+        msg = """
+        |      --------------------------------------------------------------------------
+        |        Perform tasks before deploying
+        |      --------------------------------------------------------------------------"""
+        log.info(msg, margin_prefix='|')
+        log.newline()
+        log.newline()
+        for task in config.before_deploy.tasks:
+            RunTaskUseCase(task, self.__aws, log_indent='        ').execute()
+
+    def __diff_service(self, service_a: EcsService, service_b: EcsService, json_template_path: str) -> bool:
+        if service_b is None:
+            log.newline()
+            log.warn('    Will do a force update, because service not exists')
+            log.newline()
+            return True
+
+        if service_a.task_definition != service_b.task_definition:
+            log.info(
+                '    Will do a update, because it is not latest revision of task definition')
+            log.info('      before: %s' % service_b.task_definition)
+            log.info('      after : %s' % service_a.task_definition)
+            return True
+
+        json_commit_hash_a = service_a.tags.get('JSON_COMMIT_HASH', None)
+        json_commit_hash_b = service_b.tags.get('JSON_COMMIT_HASH', None)
+        if not json_commit_hash_b or json_commit_hash_b == 'None':
+            log.newline()
+            log.warn(
+                '    Will do a force update, because JSON_COMMIT_HASH not exists')
+            log.newline()
+            return True
+
+        shoud_update = json_commit_hash_a != json_commit_hash_b
+        if shoud_update:
+            log.info(
+                '    Will do a update, because service configuration has been changed')
+            log.info('      before: %s ' % json_commit_hash_b)
+            log.info('      after : %s ' % json_commit_hash_a)
+            try:
+                git.print_diff(
+                    json_commit_hash_b,
+                    json_commit_hash_a,
+                    json_template_path)
+            except:
+                pass
+            return True
+
+        log.newline(LogLevel.DEBUG)
+        log.info('    Not yet modified.')
+        log.newline(LogLevel.DEBUG)
+
+        return False
+
+    def __updater_service(self, service: EcsService, json: dict) -> None:
+        self.__aws.ecs.service.update(
+            service.arn, json, self.__force_update)
+
+        tags = json.get('tags')
+        if tags is not None:
+            self.__aws.ecs.tag.update(service.arn, tags)
 
 
 class RunTaskUseCase():
