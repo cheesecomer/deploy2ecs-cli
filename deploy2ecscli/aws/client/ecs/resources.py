@@ -7,6 +7,7 @@ from typing import List, Union
 
 from deploy2ecscli import logger as log
 from deploy2ecscli.aws.client.config import Config
+from deploy2ecscli.aws.client.ecs.exceptions import DescribeFailedException
 from deploy2ecscli.aws.models.ecs import Service as ServiceModel
 from deploy2ecscli.aws.models.ecs import TaskDefinition as TaskDefinitionModel
 from deploy2ecscli.aws.models.ecs import Task as TaskModel
@@ -76,14 +77,9 @@ class Service():
             response=json)
 
         failures = json['failures']
-        failures = [x for x in failures if x['reason'] != 'MISSING']
+        failures = [x for x in failures if x['reason'].upper() != 'MISSING']
         if len(failures) != 0:
-            failure_format = '    {0}'
-            msgs = ['Fetch services describe failed.']
-            for failure in failures:
-                msgs.append(failure_format.format(failure['reason']))
-
-            raise Exception('\r\n'.join(msgs))
+            raise DescribeFailedException('services', failures)
 
         services = json['services']
         if len(services) == 0:
@@ -226,10 +222,7 @@ class Task():
         log.dump_aws_request('ecs', 'describe-tasks', params, response=json)
 
         if len(json['failures']) != 0:
-            msg = 'Fetch task describe failed.'
-            for failure in json['failures']:
-                msg += '\r\n    %s' % failure['reason']
-            raise Exception(msg)
+            raise DescribeFailedException('tasks', json['failures'])
 
         return [TaskModel(x) for x in json['tasks']]
 

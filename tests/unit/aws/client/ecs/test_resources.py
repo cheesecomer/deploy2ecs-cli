@@ -14,6 +14,7 @@ from deploy2ecscli.aws.client.ecs.resources import Service
 from deploy2ecscli.aws.client.ecs.resources import Tag
 from deploy2ecscli.aws.client.ecs.resources import TaskDefinition
 from deploy2ecscli.aws.client.ecs.resources import Task
+from deploy2ecscli.aws.client.ecs.exceptions import DescribeFailedException
 
 
 class TestService(unittest.TestCase):
@@ -187,8 +188,28 @@ class TestService(unittest.TestCase):
                     },
                 ]}
 
-            with self.assertRaises(Exception):
+            with self.assertRaises(DescribeFailedException):
                 subject.describe(services[0])
+
+        with self.subTest('When failures missing only'):
+            mock_client.describe_services.return_value = {
+                'services': [],
+                'failures': [
+                    {
+                        'arn': mimesis.Cryptographic().token_hex,
+                        'reason': 'MISSING'
+                    },
+                    {
+                        'arn': mimesis.Cryptographic().token_hex,
+                        'reason': 'missing'
+                    },
+                    {
+                        'arn': mimesis.Cryptographic().token_hex,
+                        'reason': 'Missing'
+                    },
+                ]}
+
+            subject.describe(services[0])
 
         mock_client.reset_mock()
 
@@ -374,7 +395,7 @@ class TestTask(unittest.TestCase):
                     },
                 ]}
 
-            with self.assertRaises(Exception):
+            with self.assertRaises(DescribeFailedException):
                 subject = Task(mock_client)
                 subject.describe(task_arns)
 
