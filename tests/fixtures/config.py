@@ -1,6 +1,10 @@
 from tests.fixtures import config_params as params_fixtures
 
-from deploy2ecscli.config import Image as ImageConfig
-
 def image(excludes=[]):
-    return ImageConfig(**params_fixtures.image(excludes=excludes, exclude_repository_name=True))
+    from deploy2ecscli.config import Image
+    return Image(**params_fixtures.image(excludes=excludes, exclude_repository_name=True))
+
+def task_definition():
+    from deploy2ecscli.config import TaskDefinition
+    images = [params_fixtures.image(exclude_repository_name=True) for x in range(10)]
+    return TaskDefinition(**params_fixtures.task_definition(images))

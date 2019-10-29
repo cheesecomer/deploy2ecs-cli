@@ -7,6 +7,7 @@ import re
 
 from typing import List
 
+import difflib
 import docker
 
 from deploy2ecscli import logger as log
@@ -16,9 +17,11 @@ from deploy2ecscli.exceptions import TaskFailedException
 from deploy2ecscli.config import Application as ApplicationConfig
 from deploy2ecscli.config import Task as TaskConfig
 from deploy2ecscli.config import Image as ImageConfig
+from deploy2ecscli.config import TaskDefinition as TaskDefinitionConfig
 from deploy2ecscli.aws.client import Client as AwsClient
 from deploy2ecscli.aws.models.ecs import Container
 from deploy2ecscli.aws.models.ecr import ImageCollection
+from deploy2ecscli.aws.models.ecs import TaskDefinition as EcsTaskDefinition
 
 
 class BuildImageUseCase():
@@ -259,6 +262,154 @@ class BuildImageUseCase():
         untagged_tags = [x for x in untagged_tags if x not in tagged_tags]
 
         return untagged_tags
+
+
+class RegisterTaskDefinitionUseCase():
+    def __init__(self, config: ApplicationConfig, aws_client: AwsClient, git_client: Git, force_update: bool):
+        self.__config = config
+        self.__aws = aws_client
+        self.__git = git_client
+        self.__force_update = force_update
+
+    def execute(self) -> None:
+        msg = """
+        ################################################################################
+        ##
+        ##  Register task definitions !!!
+        ##
+        ################################################################################"""
+        log.info(msg)
+        for task_definition in self.__config.task_definitions:
+            self.__register_task_definition(task_definition)
+
+    def __register_task_definition(self, config: TaskDefinitionConfig) -> None:
+        json_latest_commit = self.__git.latest_object(config.json_template)
+        bind_valiables = {
+            'JSON_COMMIT_HASH': json_latest_commit or self.__git.latest_object()
+        }
+
+        for image in config.images:
+            latest_commit = \
+                self.__git.latest_commit(
+                    image.dependencies,
+                    image.excludes)
+            image_uri = image.tagged_uri(latest_commit)
+
+            bind_valiables[image.bind_valiable] = image_uri
+
+        json = config.render_json(bind_valiables)
+        task_definition = EcsTaskDefinition(json)
+
+        msg = """
+        |  ==============================================================================
+        |    Task definition family: {0}
+        |  =============================================================================="""
+        log.info(msg.format(task_definition.family), margin_prefix='|')
+
+        if self.__force_update:
+            log.newline()
+            log.warn('    Will do a force update')
+            log.newline()
+
+        shoud_update = self.__force_update or \
+            self.__diff_task_definition(
+                task_definition,
+                config.json_template)
+
+        if not shoud_update:
+            return
+
+        registered_task_definition = \
+            self.__aws.ecs.task_definition.register(json)
+
+        log.newline()
+
+        tags = []
+        for key, value in registered_task_definition.tags.items():
+            tags.append('          %s: %s' % (key, value))
+        tags = '\r\n'.join(tags)
+        msg = """
+        |    ****************************************************************************
+        |      Update task definition !
+        |
+        |        revision
+        |          {0}
+        |        ARN
+        |          {1}
+        |        TAG
+        |{2}
+        |    ****************************************************************************"""
+        msg = msg.format(
+            registered_task_definition.revision,
+            registered_task_definition.arn,
+            tags)
+        log.info(msg, margin_prefix='|')
+
+    def __diff_task_definition(self, task_definition_a: EcsTaskDefinition, json_template_path: str) -> bool:
+        try:
+            task_definition_b = \
+                self.__aws.ecs.task_definition.describe(
+                    task_definition_a.family,
+                    include_tags=True)
+        except:
+            task_definition_b = None
+
+        if task_definition_b is None:
+            log.newline()
+            log.warn(
+                '    Will do a force update, because task definition not exists')
+            log.newline()
+            return True
+
+        log.newline(level=LogLevel.DEBUG)
+        msg = '    Latest task revision: {0}'
+        log.debug(msg.format(task_definition_b.revision))
+        in_use_images = task_definition_b.images
+        current_task_images = task_definition_a.images
+
+        shoud_update = not in_use_images == current_task_images
+        if shoud_update:
+            log.newline()
+            log.info('    Will do a update, becaus modified image UIRs')
+            differ = difflib.Differ()
+            image_diff = differ.compare(in_use_images, current_task_images)
+            for x in image_diff:
+                log.info('    %s' % x)
+
+            return True
+
+        json_commit_hash_a = \
+            task_definition_a.tags.get('JSON_COMMIT_HASH', None)
+        json_commit_hash_b = \
+            task_definition_b.tags.get('JSON_COMMIT_HASH', None)
+
+        sha1_regex = re.compile(r'[0-9a-f]{5,40}')
+        if not json_commit_hash_b or not sha1_regex.match(json_commit_hash_b):
+            log.newline()
+            log.warn(
+                '    Will do a force update, because JSON_COMMIT_HASH not exists')
+            log.newline()
+            return True
+
+        shoud_update = json_commit_hash_a != json_commit_hash_b
+        if shoud_update:
+            msg = """
+            |    Will do a update, because task definition configuration has been changed
+            |      before: {0}
+            |      after : {1}
+            |"""
+            log.info(msg.format(json_commit_hash_b, json_commit_hash_a))
+            try:
+                git.print_diff(json_commit_hash_b,
+                               json_commit_hash_a, json_template_path)
+            except:
+                pass
+        else:
+            log.newline()
+            log.info('    Not yet modified.')
+            log.newline()
+
+        return shoud_update
 
 
 class RunTaskUseCase():

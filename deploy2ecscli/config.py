@@ -94,6 +94,17 @@ class TaskDefinition:
         object.__setattr__(self, 'images', images)
         object.__setattr__(self, 'json_template', json_template)
 
+    def render_json(self, bind_valiables: dict) -> dict:
+        default_bind_valiables = {}
+
+        bind_valiables = dict(bind_valiables, **default_bind_valiables)
+
+        environment = Environment(loader=FileSystemLoader('.'))
+        templete = environment.get_template(self.json_template)
+        json = templete.render(bind_valiables)
+
+        return json_parser.loads(json)
+
 
 @dataclasses.dataclass(init=False, frozen=True)
 class Application:

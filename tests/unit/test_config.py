@@ -190,6 +190,29 @@ class TestTaskDefinition(unittest.TestCase):
         actual = TaskDefinition(**params)
         self.assertDictEqual(expect, dataclasses.asdict(actual))
 
+    @mock.patch('deploy2ecscli.config.Environment')
+    def test_render_json(self, mock_env):
+        expect = {
+            mimesis.Person().username(): mimesis.Cryptographic().token_hex()
+        }
+
+        bind_valiables = {
+            mimesis.Person().username(): mimesis.Cryptographic().token_hex()
+        }
+
+        mock_templete = MagicMock()
+        mock_templete.render.return_value = json_parser.dumps(expect)
+
+        instance = mock_env.return_value
+        instance.get_template.return_value = mock_templete
+
+        subject = TaskDefinition(**fixtures.task_definition(exclude_repository_name=True))
+        actual = subject.render_json(bind_valiables)
+
+        self.assertEqual(expect, actual)
+        instance.get_template.assert_called_with(subject.json_template)
+        mock_templete.render.assert_called_with(bind_valiables)
+
 
 class TestApplication(unittest.TestCase):
     def test_init(self):

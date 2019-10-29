@@ -1,4 +1,5 @@
 from contextlib import ExitStack
+import dataclasses
 
 import unittest
 from unittest import mock
@@ -8,9 +9,11 @@ import mimesis
 
 from deploy2ecscli.aws.models.ecr import ImageCollection
 from deploy2ecscli.aws.models.ecs import Task
+from deploy2ecscli.aws.models.ecs import TaskDefinition
 from deploy2ecscli.exceptions import TaskFailedException
 from deploy2ecscli.use_cases import RunTaskUseCase
 from deploy2ecscli.use_cases import BuildImageUseCase
+from deploy2ecscli.use_cases import RegisterTaskDefinitionUseCase
 
 from deploy2ecscli.git import Git
 from deploy2ecscli.config import Application as ApplicationConfig
@@ -645,6 +648,267 @@ class TestBuildImageUseCase(unittest.TestCase):
                 docker_image.tag.assert_not_called()
                 docker_client.images.push.assert_not_called()
 
+
+class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
+    def test_init(self):
+        config = MagicMock()
+        aws_client = MagicMock()
+        git_client = MagicMock()
+
+        RegisterTaskDefinitionUseCase(config, aws_client, git_client, False)
+
+    def test_execute(self):
+        def setup_task_definition_confg(render_json=None):
+            if not render_json:
+                render_json = aws_fixtures.task_definition()
+
+            task_definition_confg = MagicMock()
+            task_definition_confg.task_family = \
+                mimesis.Person().username()
+            task_definition_confg.render_json.return_value = render_json
+            task_definition_confg.images = [
+                MagicMock(dependencies=[], excludes=[],
+                          bind_valiable=mimesis.Person().username())
+            ]
+
+            return task_definition_confg
+
+        def setup_aws_client(describe=None):
+            if not describe:
+                describe = aws_fixtures.task_definition()
+
+            aws_client = MagicMock()
+
+            task_definition = aws_client.ecs.task_definition
+            task_definition.describe.return_value = TaskDefinition(describe)
+            task_definition.register.return_value = \
+                TaskDefinition(aws_fixtures.task_definition())
+
+            return aws_client
+
+        with self.subTest('When latest revision not fount'):
+            aws_task_definition = aws_fixtures.task_definition()
+
+            config = MagicMock()
+            config.task_definitions = [
+                setup_task_definition_confg(render_json=aws_task_definition)
+            ]
+
+            aws_client = setup_aws_client()
+            aws_client.ecs.task_definition.describe.return_value = None
+            git_client = MagicMock()
+
+            subject = \
+                RegisterTaskDefinitionUseCase(
+                    config,
+                    aws_client,
+                    git_client,
+                    False)
+            subject.execute()
+
+            ##################################################################
+            # Should register task_definition
+            task_definition = aws_client.ecs.task_definition
+            task_definition.register.assert_called_with(aws_task_definition)
+
+        with self.subTest('When failed describe-task-definition'):
+            aws_task_definition = aws_fixtures.task_definition()
+
+            config = MagicMock()
+            config.task_definitions = [
+                setup_task_definition_confg(render_json=aws_task_definition)
+            ]
+
+            aws_client = setup_aws_client()
+            aws_client.ecs.task_definition.describe.side_effect = Exception()
+            git_client = MagicMock()
+
+            subject = \
+                RegisterTaskDefinitionUseCase(
+                    config,
+                    aws_client,
+                    git_client,
+                    False)
+            subject.execute()
+
+            ##################################################################
+            # Should register task_definition
+            task_definition = aws_client.ecs.task_definition
+            task_definition.register.assert_called_with(aws_task_definition)
+
+        with self.subTest('When image uri unmatch'):
+            aws_task_definition = aws_fixtures.task_definition()
+
+            config = MagicMock()
+            config.task_definitions = [
+                setup_task_definition_confg(render_json=aws_task_definition)
+            ]
+
+            aws_client = setup_aws_client()
+            git_client = MagicMock()
+
+            subject = \
+                RegisterTaskDefinitionUseCase(
+                    config,
+                    aws_client,
+                    git_client,
+                    False)
+            subject.execute()
+
+            ##################################################################
+            # Should register task_definition
+            task_definition = aws_client.ecs.task_definition
+            task_definition.register.assert_called_with(aws_task_definition)
+
+        with self.subTest('When JSON_COMMIT_HASH missing'):
+            images = [
+                mimesis.File().file_name(),
+                mimesis.File().file_name(),
+                mimesis.File().file_name(),
+                mimesis.File().file_name(),
+                mimesis.File().file_name()
+            ]
+
+            aws_task_definition = aws_fixtures.task_definition(images=images)
+            describe_task_definition = \
+                aws_fixtures.task_definition(images=images)
+
+            config = MagicMock()
+            config.task_definitions = [
+                setup_task_definition_confg(render_json=aws_task_definition)
+            ]
+
+            aws_client = setup_aws_client(
+                describe=describe_task_definition)
+            git_client = MagicMock()
+
+            subject = \
+                RegisterTaskDefinitionUseCase(
+                    config,
+                    aws_client,
+                    git_client,
+                    False)
+            subject.execute()
+
+            ##################################################################
+            # Should register task_definition
+            task_definition = aws_client.ecs.task_definition
+            task_definition.register.assert_called_with(aws_task_definition)
+
+        with self.subTest('When JSON_COMMIT_HASH unmatch'):
+            images = [
+                mimesis.File().file_name(),
+                mimesis.File().file_name(),
+                mimesis.File().file_name(),
+                mimesis.File().file_name(),
+                mimesis.File().file_name()
+            ]
+
+            aws_task_definition = aws_fixtures.task_definition(images=images)
+            aws_task_definition['tags'].append({
+                'key': 'JSON_COMMIT_HASH',
+                'value': mimesis.Cryptographic().token_hex()
+            })
+
+            describe_task_definition = \
+                aws_fixtures.task_definition(images=images)
+            describe_task_definition['tags'].append({
+                'key': 'JSON_COMMIT_HASH',
+                'value': mimesis.Cryptographic().token_hex()
+            })
+
+            config = MagicMock()
+            config.task_definitions = [
+                setup_task_definition_confg(render_json=aws_task_definition)
+            ]
+
+            aws_client = setup_aws_client(
+                describe=describe_task_definition)
+            git_client = MagicMock()
+
+            subject = \
+                RegisterTaskDefinitionUseCase(
+                    config,
+                    aws_client,
+                    git_client,
+                    False)
+            subject.execute()
+
+            ##################################################################
+            # Should register task_definition
+            task_definition = aws_client.ecs.task_definition
+            task_definition.register.assert_called_with(aws_task_definition)
+
+        with self.subTest('When JSON_COMMIT_HASH match'):
+            git_hash = mimesis.Cryptographic().token_hex()
+            images = [
+                mimesis.File().file_name(),
+                mimesis.File().file_name(),
+                mimesis.File().file_name(),
+                mimesis.File().file_name(),
+                mimesis.File().file_name()
+            ]
+
+            aws_task_definition = aws_fixtures.task_definition(images=images)
+            aws_task_definition['tags'].append({
+                'key': 'JSON_COMMIT_HASH',
+                'value': git_hash
+            })
+
+            describe_task_definition = \
+                aws_fixtures.task_definition(images=images)
+            describe_task_definition['tags'].append({
+                'key': 'JSON_COMMIT_HASH',
+                'value': git_hash
+            })
+
+            config = MagicMock()
+            config.task_definitions = [
+                setup_task_definition_confg(render_json=aws_task_definition)
+            ]
+
+            aws_client = setup_aws_client(
+                describe=describe_task_definition)
+            git_client = MagicMock()
+
+            subject = \
+                RegisterTaskDefinitionUseCase(
+                    config,
+                    aws_client,
+                    git_client,
+                    False)
+            subject.execute()
+
+            ##################################################################
+            # Should not register task_definition
+            task_definition = aws_client.ecs.task_definition
+            task_definition.register.assert_not_called()
+
+
+        with self.subTest('When force update'):
+            aws_task_definition = aws_fixtures.task_definition()
+
+            config = MagicMock()
+            config.task_definitions = [
+                setup_task_definition_confg(render_json=aws_task_definition)
+            ]
+
+            aws_client = setup_aws_client()
+            aws_client.ecs.task_definition.describe.side_effect = Exception()
+            git_client = MagicMock()
+
+            subject = \
+                RegisterTaskDefinitionUseCase(
+                    config,
+                    aws_client,
+                    git_client,
+                    True)
+            subject.execute()
+
+            ##################################################################
+            # Should register task_definition
+            task_definition = aws_client.ecs.task_definition
+            task_definition.register.assert_called_with(aws_task_definition)
 
 class TestRunTaskUseCase(unittest.TestCase):
     def test_execute(self):
