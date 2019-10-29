@@ -15,7 +15,7 @@ from deploy2ecscli.config import Service
 from deploy2ecscli.config import TaskDefinition
 from deploy2ecscli.config import Application
 
-from tests.fixtures import config as fixtures
+from tests.fixtures import config_params as fixtures
 
 
 
@@ -71,6 +71,15 @@ class TestImage(unittest.TestCase):
 
             actual = Image(**params)
             self.assertEqual(expect, dataclasses.asdict(actual))
+
+    def test_tagged_uri(self):
+        tag = mimesis.Person().username
+        params = fixtures.image(exclude_repository_name=True)
+
+        expect = '{0}:{1}'.format(params['repository_uri'], tag)
+        actual = Image(**params).tagged_uri(tag)
+        self.assertEqual(expect, actual)
+
 
 
 class TestBindableImage(unittest.TestCase):

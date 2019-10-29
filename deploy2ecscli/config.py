@@ -24,6 +24,12 @@ class Image:
         repository_name = '/'.join(self.repository_uri.split('/')[1:])
         object.__setattr__(self, 'repository_name', repository_name)
 
+    def tagged_uri(self, tag):
+        full_uri = '{0}:{1}'
+        full_uri = full_uri.format(self.repository_uri, tag)
+
+        return full_uri
+
 
 @dataclasses.dataclass(frozen=True)
 class Task:
