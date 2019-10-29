@@ -77,6 +77,20 @@ class Service:
 
             object.__setattr__(self, 'before_deploy', before_deploy)
 
+    def render_json(self, bind_valiables={}) -> dict:
+        default_bind_valiables = {
+            'TASK_FAMILY': self.task_family,
+            'CLUSTER': self.cluster,
+        }
+
+        bind_valiables = dict(default_bind_valiables, **bind_valiables)
+
+        environment = Environment(loader=FileSystemLoader('.'))
+        templete = environment.get_template(self.json_template)
+        json = templete.render(bind_valiables)
+
+        return json_parser.loads(json)
+
 
 @dataclasses.dataclass(frozen=True)
 class BindableImage(Image):
