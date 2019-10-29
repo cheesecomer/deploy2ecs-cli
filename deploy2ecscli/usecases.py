@@ -292,7 +292,7 @@ class RegisterTaskDefinitionUseCase():
 
         for image in config.images:
             latest_commit = \
-                self.__git.latest_commit(
+                self.__git.latest_object(
                     image.dependencies,
                     image.excludes)
             image_uri = image.tagged_uri(latest_commit)
@@ -442,11 +442,11 @@ class RegisterServiceUseCase():
     def __register_service(self, config: ServiceConfig) -> None:
         latest_task_definition = \
             self.__aws.ecs.task_definition.describe(config.task_family)
-        json_latest_commit = self.__git.latest_commit(config.json_template)
+        json_latest_commit = self.__git.latest_object(config.json_template)
 
         bind_valiables = {
             'TASK_DEFINITION_ARN': latest_task_definition.arn,
-            'JSON_COMMIT_HASH': json_latest_commit or self.__git.latest_commit()
+            'JSON_COMMIT_HASH': json_latest_commit or self.__git.latest_object()
         }
 
         json = config.render_json(bind_valiables)
