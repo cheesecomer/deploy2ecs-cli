@@ -4,27 +4,17 @@ import mimesis
 from deploy2ecscli.aws.models.ecr import Image
 from deploy2ecscli.aws.models.ecr import ImageCollection
 
+from tests.fixtures import aws as fixtures
+
 
 class TestImageCollection(unittest.TestCase):
     def test_init(self):
         json = {
             'imageIds': [
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': None,
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
+                fixtures.ecr_image(),
+                fixtures.ecr_image(),
+                fixtures.ecr_image(),
+                fixtures.ecr_image(tag=None),
                 {
                     'imageDigest': mimesis.Cryptographic.token_hex()
                 }
@@ -44,22 +34,10 @@ class TestImageCollection(unittest.TestCase):
     def test_eq(self):
         json = {
             'imageIds': [
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': None,
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
+                fixtures.ecr_image(),
+                fixtures.ecr_image(),
+                fixtures.ecr_image(),
+                fixtures.ecr_image(tag=None),
                 {
                     'imageDigest': mimesis.Cryptographic.token_hex()
                 }
@@ -81,22 +59,10 @@ class TestImageCollection(unittest.TestCase):
     def test_ne(self):
         json = {
             'imageIds': [
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': None,
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
+                fixtures.ecr_image(),
+                fixtures.ecr_image(),
+                fixtures.ecr_image(),
+                fixtures.ecr_image(tag=None),
                 {
                     'imageDigest': mimesis.Cryptographic.token_hex()
                 }
@@ -107,22 +73,10 @@ class TestImageCollection(unittest.TestCase):
 
         json = {
             'imageIds': [
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
-                {
-                    'imageTag': None,
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
+                fixtures.ecr_image(),
+                fixtures.ecr_image(),
+                fixtures.ecr_image(),
+                fixtures.ecr_image(tag=None),
                 {
                     'imageDigest': mimesis.Cryptographic.token_hex()
                 }
@@ -134,19 +88,10 @@ class TestImageCollection(unittest.TestCase):
         self.assertNotEqual(expect, actual)
 
     def test_latest(self):
-        expect = {
-            'imageTag': 'latest',
-            'imageDigest': mimesis.Cryptographic.token_hex()
-        }
+        expect = fixtures.ecr_image(tag='latest')
         images = [
-            {
-                'imageTag': mimesis.Path().project_dir(),
-                'imageDigest': mimesis.Cryptographic.token_hex()
-            },
-            {
-                'imageTag': mimesis.Path().project_dir(),
-                'imageDigest': mimesis.Cryptographic.token_hex()
-            }
+            fixtures.ecr_image(),
+            fixtures.ecr_image()
         ]
 
         with self.subTest('When find latest'):
@@ -160,22 +105,13 @@ class TestImageCollection(unittest.TestCase):
             self.assertIsNone(actual)
 
     def test_find_by_tag(self):
-        expect = {
-            'imageTag': mimesis.Path().project_dir(),
-            'imageDigest': mimesis.Cryptographic.token_hex()
-        }
+        expect = fixtures.ecr_image(tag=mimesis.Cryptographic.token_hex())
 
         json = {
             'imageIds': [
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
+                fixtures.ecr_image(),
                 expect,
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                }
+                fixtures.ecr_image()
             ]
         }
 
@@ -186,27 +122,18 @@ class TestImageCollection(unittest.TestCase):
             self.assertEqual(expect['imageDigest'], actual.digest)
 
         with self.subTest('When not find tag'):
-            actual = ImageCollection(json).find_by_tag(
-                mimesis.Path().project_dir())
+            tag = mimesis.Path().project_dir()
+            actual = ImageCollection(json).find_by_tag(tag)
             self.assertIsNone(actual)
 
     def test_digest_is(self):
-        expect = {
-            'imageTag': mimesis.Path().project_dir(),
-            'imageDigest': mimesis.Cryptographic.token_hex()
-        }
+        expect = fixtures.ecr_image()
 
         json = {
             'imageIds': [
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                },
+                fixtures.ecr_image(),
                 expect,
-                {
-                    'imageTag': mimesis.Path().project_dir(),
-                    'imageDigest': mimesis.Cryptographic.token_hex()
-                }
+                fixtures.ecr_image()
             ]
         }
 
@@ -225,10 +152,7 @@ class TestImageCollection(unittest.TestCase):
 
 class TestImage(unittest.TestCase):
     def test_init(self):
-        json = {
-            'imageTag': mimesis.Path().project_dir(),
-            'imageDigest': mimesis.Cryptographic.token_hex()
-        }
+        json = fixtures.ecr_image()
 
         actual = Image(json)
 

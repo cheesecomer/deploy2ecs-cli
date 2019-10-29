@@ -1,5 +1,9 @@
 import dataclasses
+import json as json_parser
 import unittest
+
+from unittest import mock
+from unittest.mock import MagicMock
 
 import mimesis
 
@@ -11,61 +15,59 @@ from deploy2ecscli.config import Service
 from deploy2ecscli.config import TaskDefinition
 from deploy2ecscli.config import Application
 
-
-def task():
-    return {
-        'task_family': mimesis.Person().username(),
-        'cluster': mimesis.Person().username(),
-        'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name())
-    }
+from tests.fixtures import config as fixtures
 
 
-def image() -> dict:
-    repository_name = mimesis.Person().username()
-    return {
-        'name': mimesis.Person().username(),
-        'repository_uri': '%s/%s' % (mimesis.Cryptographic().token_hex(), repository_name),
-        'repository_name': repository_name,
-        'context': mimesis.Path().project_dir(),
-        'docker_file': mimesis.File().file_name(),
-        'dependencies': [mimesis.File().file_name() for x in range(10)],
-        'excludes': []
-    }
 
+def images_parameterize(images):
+    result = []
+    for image in images:
+        image = image.copy()
+        image.pop('repository_name')
+        result.append(image)
+
+    return result
+
+
+def task_definitions_parameterize(task_definitions):
+    result = []
+    for task_definition in task_definitions:
+        task_definition = task_definition.copy()
+        images = []
+        for image in task_definition['images']:
+            name = image['name']
+            bind_valiable = image['bind_valiable']
+
+            bindable_image = {
+                'bind_valiable': bind_valiable,
+                'name': name}
+
+            images.append(bindable_image)
+        task_definition['images'] = images
+
+        result.append(task_definition)
+
+    return result
 
 class TestImage(unittest.TestCase):
     def test_init(self):
 
         with self.subTest('When without excludes'):
-            repository_name = mimesis.Person().username()
-            params = {
-                'name': mimesis.Person().username(),
-                'repository_uri': '%s/%s' % (mimesis.Cryptographic().token_hex(), repository_name),
-                'context': mimesis.Path().project_dir(),
-                'docker_file': mimesis.File().file_name(),
-                'dependencies': [mimesis.File().file_name() for x in range(10)]
-            }
+            expect = fixtures.image()
+            params = expect.copy()
 
-            expect = params.copy()
-            expect['repository_name'] = repository_name
-            expect['excludes'] = []
+            params.pop('repository_name')
+            params.pop('excludes')
 
             actual = Image(**params)
             self.assertEqual(expect, dataclasses.asdict(actual))
 
         with self.subTest('When with excludes'):
-            repository_name = mimesis.Person().username()
-            params = {
-                'name': mimesis.Person().username(),
-                'repository_uri': '%s/%s' % (mimesis.Cryptographic().token_hex(), repository_name),
-                'context': mimesis.Path().project_dir(),
-                'docker_file': mimesis.File().file_name(),
-                'dependencies': [mimesis.File().file_name() for x in range(10)],
-                'excludes': [mimesis.File().file_name() for x in range(10)]
-            }
+            expect = fixtures.image(
+                excludes=[mimesis.File().file_name() for x in range(10)])
+            params = expect.copy()
 
-            expect = params.copy()
-            expect['repository_name'] = repository_name
+            params.pop('repository_name')
 
             actual = Image(**params)
             self.assertEqual(expect, dataclasses.asdict(actual))
@@ -75,55 +77,20 @@ class TestBindableImage(unittest.TestCase):
     def test_init(self):
 
         with self.subTest('When without excludes'):
-            repository_name = mimesis.Person().username()
-            params = {
-                'name': mimesis.Person().username(),
-                'repository_uri': '%s/%s' % (mimesis.Cryptographic().token_hex(), repository_name),
-                'context': mimesis.Path().project_dir(),
-                'docker_file': mimesis.File().file_name(),
-                'dependencies': [mimesis.File().file_name() for x in range(10)]
-            }
-
-            expect = params.copy()
-            expect['repository_name'] = repository_name
-            expect['excludes'] = []
-            expect['bind_valiable'] = None
+            expect = fixtures.bindable_image()
+            params = expect.copy()
+            params.pop('repository_name')
+            params.pop('excludes')
 
             actual = BindableImage(**params)
             self.assertEqual(expect, dataclasses.asdict(actual))
 
         with self.subTest('When with excludes'):
-            repository_name = mimesis.Person().username()
-            params = {
-                'name': mimesis.Person().username(),
-                'repository_uri': '%s/%s' % (mimesis.Cryptographic().token_hex(), repository_name),
-                'context': mimesis.Path().project_dir(),
-                'docker_file': mimesis.File().file_name(),
-                'dependencies': [mimesis.File().file_name() for x in range(10)],
-                'excludes': [mimesis.File().file_name() for x in range(10)]
-            }
+            expect = fixtures.bindable_image(
+                excludes=[mimesis.File().file_name() for x in range(10)])
+            params = expect.copy()
 
-            expect = params.copy()
-            expect['repository_name'] = repository_name
-            expect['bind_valiable'] = None
-
-            actual = BindableImage(**params)
-            self.assertEqual(expect, dataclasses.asdict(actual))
-
-        with self.subTest('When with bind_valiable'):
-            repository_name = mimesis.Person().username()
-            params = {
-                'name': mimesis.Person().username(),
-                'repository_uri': '%s/%s' % (mimesis.Cryptographic().token_hex(), repository_name),
-                'context': mimesis.Path().project_dir(),
-                'docker_file': mimesis.File().file_name(),
-                'dependencies': [mimesis.File().file_name() for x in range(10)],
-                'bind_valiable': mimesis.Person().username()
-            }
-
-            expect = params.copy()
-            expect['repository_name'] = repository_name
-            expect['excludes'] = []
+            params.pop('repository_name')
 
             actual = BindableImage(**params)
             self.assertEqual(expect, dataclasses.asdict(actual))
@@ -131,44 +98,56 @@ class TestBindableImage(unittest.TestCase):
 
 class TestTask(unittest.TestCase):
     def test_init(self):
-        params = {
-            'task_family': mimesis.Person().username(),
-            'cluster': mimesis.Person().username(),
-            'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name())
-        }
+        expect = fixtures.task()
+        params = expect.copy()
 
         actual = Task(**params)
-        self.assertEqual(params, dataclasses.asdict(actual))
+        self.assertEqual(expect, dataclasses.asdict(actual))
+
+    @mock.patch('deploy2ecscli.config.Environment')
+    def test_render_json(self, mock_env):
+        expect = {
+            mimesis.Person().username(): mimesis.Cryptographic().token_hex()
+        }
+
+        mock_templete = MagicMock()
+        mock_templete.render.return_value = json_parser.dumps(expect)
+
+        instance = mock_env.return_value
+        instance.get_template.return_value = mock_templete
+
+        subject = Task(**fixtures.task())
+        actual = subject.render_json()
+
+        self.assertEqual(expect, actual)
+        instance.get_template.assert_called_with(subject.json_template)
+        mock_templete.render.assert_called_with({
+            'TASK_FAMILY': subject.task_family,
+            'CLUSTER': subject.cluster,
+        })
 
 
 class TestBeforeDeploy(unittest.TestCase):
     def test_init(self):
         with self.subTest('When with tasks'):
-            params = {
-                'tasks': [task() for x in range(10)]
-            }
+            expect = fixtures.before_deploy()
+            params = expect.copy()
 
             actual = BeforeDeploy(**params)
-
-            self.assertEqual(params, dataclasses.asdict(actual))
+            self.assertEqual(expect, dataclasses.asdict(actual))
 
         with self.subTest('When without tasks'):
+            expect = {'tasks': []}
             params = {}
 
             actual = BeforeDeploy(**params)
-
-            self.assertEqual({'tasks': []}, dataclasses.asdict(actual))
+            self.assertEqual(expect, dataclasses.asdict(actual))
 
 
 class TestService(unittest.TestCase):
     def test_init(self):
         with self.subTest('When without before_deploy'):
-            params = {
-                'name': mimesis.Person().username(),
-                'task_family': mimesis.Person().username(),
-                'cluster': mimesis.Person().username(),
-                'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name())
-            }
+            params = fixtures.service()
 
             expect = params.copy()
             expect['before_deploy'] = None
@@ -177,16 +156,7 @@ class TestService(unittest.TestCase):
             self.assertEqual(expect, dataclasses.asdict(actual))
 
         with self.subTest('When with before_deploy'):
-
-            params = {
-                'name': mimesis.Person().username(),
-                'task_family': mimesis.Person().username(),
-                'cluster': mimesis.Person().username(),
-                'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name()),
-                'before_deploy': {
-                    'tasks': [task() for x in range(10)]
-                }
-            }
+            params = fixtures.service(fixtures.before_deploy())
 
             expect = params.copy()
 
@@ -194,28 +164,11 @@ class TestService(unittest.TestCase):
             self.assertEqual(expect, dataclasses.asdict(actual))
 
 
-def bindable_image() -> dict:
-    repository_name = mimesis.Person().username()
-    return {
-        'name': mimesis.Person().username(),
-        'repository_uri': '%s/%s' % (mimesis.Cryptographic().token_hex(), repository_name),
-        'repository_name': repository_name,
-        'context': mimesis.Path().project_dir(),
-        'docker_file': mimesis.File().file_name(),
-        'dependencies': [mimesis.File().file_name() for x in range(10)],
-        'bind_valiable': mimesis.Person().username(),
-        'excludes': []
-    }
-
-
 class TestTaskDefinition(unittest.TestCase):
     def test_init(self):
         self.maxDiff = None
 
-        expect = {
-            'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name()),
-            'images': [bindable_image() for x in range(10)]
-        }
+        expect = fixtures.task_definition()
 
         params = expect.copy()
         images = []
@@ -229,67 +182,20 @@ class TestTaskDefinition(unittest.TestCase):
         self.assertDictEqual(expect, dataclasses.asdict(actual))
 
 
-def task_definition(images) -> dict:
-    bindable_images = []
-    for image in images:
-        image = image.copy()
-        image['bind_valiable'] = mimesis.Person().username()
-
-        bindable_images.append(image)
-
-    return {
-        'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name()),
-        'images': bindable_images
-    }
-
-
-def service():
-    return {
-        'name': mimesis.Person().username(),
-        'task_family': mimesis.Person().username(),
-        'cluster': mimesis.Person().username(),
-        'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name()),
-        'before_deploy': {
-            'tasks': [task() for x in range(10)]
-        }
-    }
-
-
 class TestApplication(unittest.TestCase):
     def test_init(self):
         # self.maxDiff = None
-        images = [image() for x in range(10)]
+        images = [fixtures.image() for x in range(10)]
         expect = {
             'images': images,
-            'task_definitions': [task_definition(images) for x in range(10)],
-            'services': [service() for x in range(10)],
+            'task_definitions': [fixtures.task_definition(images) for x in range(10)],
+            'services': [fixtures.service() for x in range(10)],
         }
 
         params = expect.copy()
-
-        param_images = []
-        for param_image in params['images']:
-            param_image = param_image.copy()
-            param_image.pop('repository_name')
-            param_images.append(param_image)
-        params['images'] = param_images
-
-        param_task_definitions = []
-        for param_task_definition in params['task_definitions']:
-            param_task_definition = param_task_definition.copy()
-            param_images = []
-            for param_image in param_task_definition['images']:
-                param_image = param_image.copy()
-                name = param_image['name']
-                bind_valiable = param_image['bind_valiable']
-
-                param_images.append(
-                    {'bind_valiable': bind_valiable, 'name': name})
-            param_task_definition['images'] = param_images
-
-            param_task_definitions.append(param_task_definition)
-
-        params['task_definitions'] = param_task_definitions
+        params['images'] = images_parameterize(params['images'])
+        params['task_definitions'] = \
+            task_definitions_parameterize(params['task_definitions'])
 
         actual = Application(**params)
 
