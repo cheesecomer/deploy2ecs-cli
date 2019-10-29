@@ -5,6 +5,9 @@
 
 from typing import List, Optional
 import dataclasses
+import json as json_parser
+
+from jinja2 import Template, Environment, FileSystemLoader
 
 
 @dataclasses.dataclass(frozen=True)
@@ -27,6 +30,18 @@ class Task:
     task_family: str
     cluster: str
     json_template: str
+
+    def render_json(self) -> dict:
+        bind_valiables = {
+            'TASK_FAMILY': self.task_family,
+            'CLUSTER': self.cluster,
+        }
+
+        environment = Environment(loader=FileSystemLoader('.'))
+        templete = environment.get_template(self.json_template)
+        json = templete.render(bind_valiables)
+
+        return json_parser.loads(json)
 
 
 @dataclasses.dataclass(init=False, frozen=True)
@@ -127,7 +142,7 @@ class Application:
 
         for task_definition in task_definitions:
             for bind_image in task_definition['images']:
-                image = (x for x in images if bind_image["name"] == x.name)
+                image = (x for x in images if bind_image['name'] == x.name)
                 image = next(image, {})
                 image = dataclasses.asdict(image)
                 image.pop('repository_name')
