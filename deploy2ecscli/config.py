@@ -3,6 +3,8 @@
 # -*- coding: utf-8 -*-
 # vi: set ft=python :
 
+from abc import ABC, abstractmethod
+import os
 import re
 import dataclasses
 import json as json_parser
@@ -54,6 +56,34 @@ class Image:
         full_uri = full_uri.format(self.repository_uri, tag)
 
         return full_uri
+
+
+@dataclasses.dataclass(frozen=True)
+class BindableVariable(ABC):
+    name: str
+
+    @abstractmethod
+    def get_value(self) -> str:
+        raise NotImplementedError()
+
+    def to_dict(self) -> dict:
+        return {self.name: self.get_value()}
+
+
+@dataclasses.dataclass(frozen=True)
+class BindableConstVariable(BindableVariable):
+    value: str
+
+    def get_value(self) -> str:
+        return self.value
+
+
+@dataclasses.dataclass(frozen=True)
+class BindableVariableFromEnv(BindableVariable):
+    value_from: str
+
+    def get_value(self) -> str:
+        return os.environ.get(self.value_from, '')
 
 
 @dataclasses.dataclass(frozen=True)

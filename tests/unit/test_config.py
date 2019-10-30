@@ -1,3 +1,4 @@
+import os
 import dataclasses
 import json as json_parser
 import unittest
@@ -7,6 +8,8 @@ from unittest.mock import MagicMock
 
 import mimesis
 
+from deploy2ecscli.config import BindableConstVariable
+from deploy2ecscli.config import BindableVariableFromEnv
 from deploy2ecscli.config import Image
 from deploy2ecscli.config import BindableImage
 from deploy2ecscli.config import Task
@@ -47,6 +50,57 @@ def task_definitions_parameterize(task_definitions):
         result.append(task_definition)
 
     return result
+
+
+class TestBindableConstVariable(unittest.TestCase):
+    def test_init(self):
+        self.maxDiff = None
+        expect = {
+            'name': mimesis.Person().username(),
+            'value': mimesis.Cryptographic().token_hex()
+        }
+
+        actual = BindableConstVariable(**expect)
+        actual = dataclasses.asdict(actual)
+
+        self.assertEqual(expect, actual)
+
+    def test_to_dict(self):
+        name = mimesis.Person().username()
+        value = mimesis.Cryptographic().token_hex()
+
+        expect = {name: value}
+
+        actual = BindableConstVariable(name=name, value=value)
+        actual = actual.to_dict()
+
+        self.assertEqual(expect, actual)
+
+
+class TestBindableVariableFromEnv(unittest.TestCase):
+    def test_init(self):
+        self.maxDiff = None
+        expect = {
+            'name': mimesis.Person().username(),
+            'value_from': mimesis.Food().vegetable()
+        }
+
+        actual = BindableVariableFromEnv(**expect)
+        actual = dataclasses.asdict(actual)
+
+        self.assertEqual(expect, actual)
+
+    def test_to_dict(self):
+        name = mimesis.Person().username()
+        value_from = mimesis.Food().vegetable()
+        value = mimesis.Cryptographic().token_hex()
+        expect = {name: value}
+        with mock.patch.dict(os.environ, {value_from: value}):
+            actual = \
+                BindableVariableFromEnv(name=name, value_from=value_from)
+            actual = actual.to_dict()
+
+        self.assertEqual(expect, actual)
 
 
 class TestImage(unittest.TestCase):
