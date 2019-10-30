@@ -69,27 +69,6 @@ class BindableVariable(ABC):
     def to_tuple(self) -> Tuple[str, str]:
         return (self.name, self.get_value())
 
-    @classmethod
-    def parse(clz, variables: List[dict]):
-        clz_mapping = {
-            'value': BindableConstVariable,
-            'value_from': BindableVariableFromEnv
-        }
-
-        clz_mapping = clz_mapping.items()
-
-        result = []
-        for variable in variables:
-            clazz = \
-                (v for k, v in clz_mapping if variable.get(k))
-            clazz = next(clazz, None)
-            if clazz is None:
-                continue
-
-            result.append(clazz(**variable))
-
-        return result
-
 
 @dataclasses.dataclass(frozen=True)
 class BindableConstVariable(BindableVariable):
@@ -107,17 +86,36 @@ class BindableVariableFromEnv(BindableVariable):
         return os.environ.get(self.value_from, '')
 
 
+class BindableVariableCollection(list):
+    def __init__(self, variables: List[dict]):
+        clz_mapping = {
+            'value': BindableConstVariable,
+            'value_from': BindableVariableFromEnv
+        }
+
+        clz_mapping = clz_mapping.items()
+
+        for variable in variables:
+            clazz = \
+                (v for k, v in clz_mapping if variable.get(k))
+            clazz = next(clazz, None)
+            if clazz is None:
+                continue
+
+            self.append(clazz(**variable))
+
+
 @dataclasses.dataclass(frozen=True)
 class Task:
     task_family: str
     cluster: str
     json_template: str
-    bind_variables: List[BindableVariable] \
+    bind_variables: BindableVariableCollection \
         = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         bind_variables = self.bind_variables
-        bind_variables = BindableVariable.parse(bind_variables)
+        bind_variables = BindableVariableCollection(bind_variables)
         object.__setattr__(self, 'bind_variables', bind_variables)
 
     def render_json(self) -> dict:
@@ -125,8 +123,6 @@ class Task:
             'TASK_FAMILY': self.task_family,
             'CLUSTER': self.cluster,
         }
-
-        
 
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
@@ -151,12 +147,12 @@ class Service:
     cluster: str
     json_template: str
     before_deploy: BeforeDeploy = None
-    bind_variables: List[BindableVariable] \
+    bind_variables: BindableVariableCollection \
         = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         bind_variables = self.bind_variables
-        bind_variables = BindableVariable.parse(bind_variables)
+        bind_variables = BindableVariableCollection(bind_variables)
         object.__setattr__(self, 'bind_variables', bind_variables)
 
         if isinstance(self.before_deploy, dict):
@@ -187,12 +183,12 @@ class BindableImage(Image):
 class TaskDefinition:
     json_template: str
     images: List[BindableImage]
-    bind_variables: List[BindableVariable] \
+    bind_variables: BindableVariableCollection \
         = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         bind_variables = self.bind_variables
-        bind_variables = BindableVariable.parse(bind_variables)
+        bind_variables = BindableVariableCollection(bind_variables)
         object.__setattr__(self, 'bind_variables', bind_variables)
 
         if isinstance(self.images, list):

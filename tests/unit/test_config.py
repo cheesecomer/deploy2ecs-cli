@@ -11,6 +11,7 @@ import mimesis
 from deploy2ecscli.config import BindableVariable
 from deploy2ecscli.config import BindableConstVariable
 from deploy2ecscli.config import BindableVariableFromEnv
+from deploy2ecscli.config import BindableVariableCollection
 from deploy2ecscli.config import Image
 from deploy2ecscli.config import BindableImage
 from deploy2ecscli.config import Task
@@ -52,8 +53,7 @@ def task_definitions_parameterize(task_definitions):
 
     return result
 
-
-class TestBindableVariable(unittest.TestCase):
+class TestBindableVariableCollection(unittest.TestCase):
     def test_init(self):
         expect = [
             {
@@ -93,11 +93,10 @@ class TestBindableVariable(unittest.TestCase):
         params = expect.copy()
         params.append({'name': mimesis.Person().username()})
 
-        actual = BindableVariable.parse(params)
+        actual = BindableVariableCollection(params)
         actual = [dataclasses.asdict(x) for x in actual]
 
         self.assertListEqual(expect, actual)
-
 
 class TestBindableConstVariable(unittest.TestCase):
     def test_init(self):
