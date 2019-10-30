@@ -361,6 +361,7 @@ class TestBuildImageUseCase(unittest.TestCase):
                 git_client.latest_object.return_value = latest_object
                 git_client.diff_files.return_value = \
                     [mimesis.File().file_name() for x in range(10)]
+                git_client.print_diff = Exception()
 
                 docker_client, docker_image = setup_docker_client(stack)
 
@@ -596,6 +597,7 @@ class TestBuildImageUseCase(unittest.TestCase):
                 git_client.latest_object.return_value = latest_object
                 git_client.diff_files.return_value = \
                     [mimesis.File().file_name() for x in range(10)]
+                git_client.print_diff = Exception()
 
                 docker_client, docker_image = setup_docker_client(stack)
 
@@ -832,6 +834,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             aws_client = setup_aws_client(
                 describe=describe_task_definition)
             git_client = MagicMock()
+            git_client.print_diff = Exception()
 
             subject = \
                 RegisterTaskDefinitionUseCase(
@@ -1085,6 +1088,9 @@ class TestRegisterServiceUseCase(unittest.TestCase):
                 Service(aws_fixtures.service()),
                 Service(aws_fixtures.service())
             ]
+
+            git_client = MagicMock()
+            git_client.print_diff = Exception()
 
             subject = RegisterServiceUseCase(
                 config, aws_client, git_client, False)

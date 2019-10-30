@@ -114,10 +114,12 @@ class BuildImageUseCase():
         if not self.__dyr_run:
             context_path = config.context
             context_path = './' if context_path == '.' else context_path
-            context_path = context_path if context_path.endswith('/') else context_path + '/'
+            context_path = context_path \
+                if context_path.endswith('/') else context_path + '/'
 
             docker_file_path = config.docker_file
-            docker_file_path = re.sub('^' + context_path, './', docker_file_path)
+            docker_file_path = \
+                re.sub('^' + context_path, './', docker_file_path)
             image, output = self.__docker.images.build(
                 path=context_path,
                 dockerfile=docker_file_path,
@@ -210,9 +212,10 @@ class BuildImageUseCase():
             log.warn(msg.format(config.repository_name, latest_image_commit))
             return None
 
-        modified_files = self.__git.diff_files(
-            latest_image_commit, current_commit,
-            config.dependencies, config.excludes)
+        modified_files = \
+            self.__git.diff_files(
+                latest_image_commit, current_commit,
+                config.dependencies, config.excludes)
         should_build = len(modified_files) != 0
         if should_build:
             msg = """
@@ -236,11 +239,14 @@ class BuildImageUseCase():
                 log.info('        => %s' % file)
             log.newline()
 
-            self.__git.print_diff(
-                latest_image_commit,
-                current_commit,
-                config.dependencies,
-                config.excludes)
+            try:
+                self.__git.print_diff(
+                    latest_image_commit,
+                    current_commit,
+                    config.dependencies,
+                    config.excludes)
+            except:
+                pass
 
             return None
 
@@ -410,10 +416,14 @@ class RegisterTaskDefinitionUseCase():
             |      before: {0}
             |      after : {1}
             |"""
-            log.info(msg.format(json_commit_hash_b, json_commit_hash_a), margin_prefix='|')
+            msg = msg.format(json_commit_hash_b, json_commit_hash_a)
+            log.info(msg, margin_prefix='|')
+
             try:
-                git.print_diff(json_commit_hash_b,
-                               json_commit_hash_a, json_template_path)
+                self.__git.print_diff(
+                    json_commit_hash_b,
+                    json_commit_hash_a,
+                    json_template_path)
             except:
                 pass
         else:
@@ -560,8 +570,9 @@ class RegisterServiceUseCase():
                 '    Will do a update, because service configuration has been changed')
             log.info('      before: %s ' % json_commit_hash_b)
             log.info('      after : %s ' % json_commit_hash_a)
+
             try:
-                git.print_diff(
+                self.__git.print_diff(
                     json_commit_hash_b,
                     json_commit_hash_a,
                     json_template_path)
