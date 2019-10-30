@@ -112,13 +112,13 @@ class Task:
     task_family: str
     cluster: str
     json_template: str
-    bindable_variables: List[BindableVariable] \
+    bind_variables: List[BindableVariable] \
         = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
-        bindable_variables = self.bindable_variables
-        bindable_variables = BindableVariable.parse(bindable_variables)
-        object.__setattr__(self, 'bindable_variables', bindable_variables)
+        bind_variables = self.bind_variables
+        bind_variables = BindableVariable.parse(bind_variables)
+        object.__setattr__(self, 'bind_variables', bind_variables)
 
     def render_json(self) -> dict:
         bind_valiables = {
@@ -149,8 +149,14 @@ class Service:
     cluster: str
     json_template: str
     before_deploy: BeforeDeploy = None
+    bind_variables: List[BindableVariable] \
+        = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
+        bind_variables = self.bind_variables
+        bind_variables = BindableVariable.parse(bind_variables)
+        object.__setattr__(self, 'bind_variables', bind_variables)
+
         if isinstance(self.before_deploy, dict):
             before_deploy = BeforeDeploy(**self.before_deploy)
             object.__setattr__(self, 'before_deploy', before_deploy)
@@ -179,8 +185,14 @@ class BindableImage(Image):
 class TaskDefinition:
     json_template: str
     images: List[BindableImage]
+    bind_variables: List[BindableVariable] \
+        = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
+        bind_variables = self.bind_variables
+        bind_variables = BindableVariable.parse(bind_variables)
+        object.__setattr__(self, 'bind_variables', bind_variables)
+
         if isinstance(self.images, list):
             images = [BindableImage(**x) for x in self.images]
             object.__setattr__(self, 'images', images)

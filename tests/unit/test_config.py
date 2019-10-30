@@ -231,10 +231,10 @@ class TestTask(unittest.TestCase):
         actual = Task(**params)
         self.assertEqual(expect, dataclasses.asdict(actual))
 
-    def test_init_when_without_bindable_variables(self):
+    def test_init_when_without_bind_variables(self):
         expect = fixtures.task()
         params = expect.copy()
-        params.pop('bindable_variables')
+        params.pop('bind_variables')
 
         actual = Task(**params)
         self.assertEqual(expect, dataclasses.asdict(actual))
@@ -280,23 +280,22 @@ class TestBeforeDeploy(unittest.TestCase):
 
 
 class TestService(unittest.TestCase):
-    def test_init(self):
-        with self.subTest('When without before_deploy'):
-            params = fixtures.service()
+    def test_init_when_without_before_deploy(self):
+        params = fixtures.service()
 
-            expect = params.copy()
-            expect['before_deploy'] = None
+        expect = params.copy()
+        expect['before_deploy'] = None
 
-            actual = Service(**params)
-            self.assertEqual(expect, dataclasses.asdict(actual))
+        actual = Service(**params)
+        self.assertEqual(expect, dataclasses.asdict(actual))
 
-        with self.subTest('When with before_deploy'):
-            params = fixtures.service(fixtures.before_deploy())
+    def test_init_when_with_before_deploy(self):
+        params = fixtures.service(fixtures.before_deploy())
 
-            expect = params.copy()
+        expect = params.copy()
 
-            actual = Service(**params)
-            self.assertEqual(expect, dataclasses.asdict(actual))
+        actual = Service(**params)
+        self.assertEqual(expect, dataclasses.asdict(actual))
 
     @mock.patch('deploy2ecscli.config.Environment')
     def test_render_json(self, mock_env):

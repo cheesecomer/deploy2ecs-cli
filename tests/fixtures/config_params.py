@@ -3,7 +3,7 @@ import mimesis
 
 def task():
     return {
-        'bindable_variables': [],
+        'bind_variables': [],
         'task_family': mimesis.Person().username(),
         'cluster': mimesis.Person().username(),
         'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name())
@@ -52,7 +52,8 @@ def task_definition(images=None, exclude_repository_name: bool = False) -> dict:
 
     return {
         'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name()),
-        'images': bindable_images
+        'images': bindable_images,
+        'bind_variables': []
     }
 
 
@@ -68,7 +69,8 @@ def service(before_deploy=None):
         'task_family': mimesis.Person().username(),
         'cluster': mimesis.Person().username(),
         'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name()),
-        'before_deploy': before_deploy
+        'before_deploy': before_deploy,
+        'bind_variables': []
     }
 
     return result
