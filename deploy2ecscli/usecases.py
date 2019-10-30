@@ -621,8 +621,8 @@ class RunTaskUseCase():
 
             self.__aws.ecs.task.wait_stopped(task.arn, self.__config.cluster)
 
-            tasks = self.__aws.ecs.task.describe(
-                task.arn, self.__config.cluster)
+            tasks = \
+                self.__aws.ecs.task.describe(task.arn, self.__config.cluster)
             task = tasks[0]
 
         self.__raise_exception(task.containers)
