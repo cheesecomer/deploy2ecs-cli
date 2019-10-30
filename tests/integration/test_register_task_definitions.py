@@ -43,9 +43,9 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             -   json_template: ./project_dir/task_definition.json
                 images:
                     -   name: app
-                        bind_valiable: APP_IMAGE_URI
+                        bind_variable: APP_IMAGE_URI
                     -   name: nginx
-                        bind_valiable: NGINX_IMAGE_URI
+                        bind_variable: NGINX_IMAGE_URI
         services:
     """
 

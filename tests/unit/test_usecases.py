@@ -678,7 +678,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
         task_definition_confg.render_json.return_value = render_json
         task_definition_confg.images = [
             MagicMock(dependencies=[], excludes=[],
-                      bind_valiable=mimesis.Person().username())
+                      bind_variable=mimesis.Person().username())
         ]
 
         return task_definition_confg

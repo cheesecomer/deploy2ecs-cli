@@ -39,10 +39,10 @@ def task_definitions_parameterize(task_definitions):
         images = []
         for image in task_definition['images']:
             name = image['name']
-            bind_valiable = image['bind_valiable']
+            bind_variable = image['bind_variable']
 
             bindable_image = {
-                'bind_valiable': bind_valiable,
+                'bind_variable': bind_variable,
                 'name': name}
 
             images.append(bindable_image)
@@ -112,14 +112,14 @@ class TestBindableConstVariable(unittest.TestCase):
 
         self.assertEqual(expect, actual)
 
-    def test_to_dict(self):
+    def test_to_tuple(self):
         name = mimesis.Person().username()
         value = mimesis.Cryptographic().token_hex()
 
-        expect = {name: value}
+        expect = (name, value)
 
         actual = BindableConstVariable(name=name, value=value)
-        actual = actual.to_dict()
+        actual = actual.to_tuple()
 
         self.assertEqual(expect, actual)
 
@@ -137,15 +137,15 @@ class TestBindableVariableFromEnv(unittest.TestCase):
 
         self.assertEqual(expect, actual)
 
-    def test_to_dict(self):
+    def test_to_tuple(self):
         name = mimesis.Person().username()
         value_from = mimesis.Food().vegetable()
         value = mimesis.Cryptographic().token_hex()
-        expect = {name: value}
+        expect = (name, value)
         with mock.patch.dict(os.environ, {value_from: value}):
             actual = \
                 BindableVariableFromEnv(name=name, value_from=value_from)
-            actual = actual.to_dict()
+            actual = actual.to_tuple()
 
         self.assertEqual(expect, actual)
 
@@ -303,7 +303,7 @@ class TestService(unittest.TestCase):
             mimesis.Person().username(): mimesis.Cryptographic().token_hex()
         }
 
-        bind_valiables = {
+        bind_variables = {
             mimesis.Person().username(): mimesis.Cryptographic().token_hex()
         }
 
@@ -314,16 +314,16 @@ class TestService(unittest.TestCase):
         instance.get_template.return_value = mock_templete
 
         subject = Service(**fixtures.service())
-        default_bind_valiables = {
+        default_bind_variables = {
             'TASK_FAMILY': subject.task_family,
             'CLUSTER': subject.cluster,
         }
-        actual = subject.render_json(bind_valiables)
+        actual = subject.render_json(bind_variables)
 
         self.assertEqual(expect, actual)
         instance.get_template.assert_called_with(subject.json_template)
         mock_templete.render.assert_called_with(
-            dict(bind_valiables, **default_bind_valiables))
+            dict(bind_variables, **default_bind_variables))
 
 
 class TestTaskDefinition(unittest.TestCase):
@@ -352,7 +352,7 @@ class TestTaskDefinition(unittest.TestCase):
             mimesis.Person().username(): mimesis.Cryptographic().token_hex()
         }
 
-        bind_valiables = {
+        bind_variables = {
             mimesis.Person().username(): mimesis.Cryptographic().token_hex()
         }
 
@@ -364,11 +364,11 @@ class TestTaskDefinition(unittest.TestCase):
 
         subject = TaskDefinition(
             **fixtures.task_definition(exclude_repository_name=True))
-        actual = subject.render_json(bind_valiables)
+        actual = subject.render_json(bind_variables)
 
         self.assertEqual(expect, actual)
         instance.get_template.assert_called_with(subject.json_template)
-        mock_templete.render.assert_called_with(bind_valiables)
+        mock_templete.render.assert_called_with(bind_variables)
 
 
 class TestApplication(unittest.TestCase):

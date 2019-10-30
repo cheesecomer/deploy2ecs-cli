@@ -294,7 +294,7 @@ class RegisterTaskDefinitionUseCase():
 
     def __register_task_definition(self, config: TaskDefinitionConfig) -> None:
         json_latest_commit = self.__git.latest_object(config.json_template)
-        bind_valiables = {
+        bind_variables = {
             'JSON_COMMIT_HASH': json_latest_commit or self.__git.latest_object()
         }
 
@@ -305,9 +305,9 @@ class RegisterTaskDefinitionUseCase():
                     image.excludes)
             image_uri = image.tagged_uri(latest_commit)
 
-            bind_valiables[image.bind_valiable] = image_uri
+            bind_variables[image.bind_variable] = image_uri
 
-        json = config.render_json(bind_valiables)
+        json = config.render_json(bind_variables)
         task_definition = EcsTaskDefinition(json)
 
         msg = """
@@ -456,12 +456,12 @@ class RegisterServiceUseCase():
             self.__aws.ecs.task_definition.describe(config.task_family)
         json_latest_commit = self.__git.latest_object(config.json_template)
 
-        bind_valiables = {
+        bind_variables = {
             'TASK_DEFINITION_ARN': latest_task_definition.arn,
             'JSON_COMMIT_HASH': json_latest_commit or self.__git.latest_object()
         }
 
-        json = config.render_json(bind_valiables)
+        json = config.render_json(bind_variables)
         service = EcsService(json)
 
         if self.__force_update:
@@ -509,7 +509,7 @@ class RegisterServiceUseCase():
         |    ****************************************************************************"""
         msg = msg.format(
             latest_task_definition.arn,
-            bind_valiables['JSON_COMMIT_HASH'])
+            bind_variables['JSON_COMMIT_HASH'])
         log.info(msg, margin_prefix='|')
         if active_service is not None:
             self.__updater_service(active_service, json)

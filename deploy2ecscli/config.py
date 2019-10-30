@@ -9,7 +9,7 @@ import re
 import dataclasses
 import json as json_parser
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from jinja2 import Template, Environment, FileSystemLoader
 
@@ -66,8 +66,8 @@ class BindableVariable(ABC):
     def get_value(self) -> str:
         raise NotImplementedError()
 
-    def to_dict(self) -> dict:
-        return {self.name: self.get_value()}
+    def to_tuple(self) -> Tuple[str, str]:
+        return (self.name, self.get_value())
 
     @classmethod
     def parse(clz, variables: List[dict]):
@@ -121,14 +121,16 @@ class Task:
         object.__setattr__(self, 'bind_variables', bind_variables)
 
     def render_json(self) -> dict:
-        bind_valiables = {
+        bind_variables = {
             'TASK_FAMILY': self.task_family,
             'CLUSTER': self.cluster,
         }
 
+        
+
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
-        json = templete.render(bind_valiables)
+        json = templete.render(bind_variables)
 
         return json_parser.loads(json)
 
@@ -161,24 +163,24 @@ class Service:
             before_deploy = BeforeDeploy(**self.before_deploy)
             object.__setattr__(self, 'before_deploy', before_deploy)
 
-    def render_json(self, bind_valiables={}) -> dict:
-        default_bind_valiables = {
+    def render_json(self, bind_variables={}) -> dict:
+        default_bind_variables = {
             'TASK_FAMILY': self.task_family,
             'CLUSTER': self.cluster,
         }
 
-        bind_valiables = dict(default_bind_valiables, **bind_valiables)
+        bind_variables = dict(default_bind_variables, **bind_variables)
 
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
-        json = templete.render(bind_valiables)
+        json = templete.render(bind_variables)
 
         return json_parser.loads(json)
 
 
 @dataclasses.dataclass(frozen=True)
 class BindableImage(Image):
-    bind_valiable: str = None
+    bind_variable: str = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -197,14 +199,14 @@ class TaskDefinition:
             images = [BindableImage(**x) for x in self.images]
             object.__setattr__(self, 'images', images)
 
-    def render_json(self, bind_valiables: dict) -> dict:
-        default_bind_valiables = {}
+    def render_json(self, bind_variables: dict) -> dict:
+        default_bind_variables = {}
 
-        bind_valiables = dict(bind_valiables, **default_bind_valiables)
+        bind_variables = dict(bind_variables, **default_bind_variables)
 
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
-        json = templete.render(bind_valiables)
+        json = templete.render(bind_variables)
 
         return json_parser.loads(json)
 
@@ -228,7 +230,7 @@ class Application:
                 'images': [
                     {
                         'name': 'link to images.name'
-                        'bind_valiable': 'string'
+                        'bind_variable': 'string'
                     }
                 ]
             }
