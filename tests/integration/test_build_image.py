@@ -98,61 +98,61 @@ class TestBuildImage(unittest.TestCase):
 
             if command.startswith('git --no-pager diff '):
                 stdout = """diff --git a/deploy2ecscli/git/git.py b/deploy2ecscli/git/git.py
-                    index 9e1896f..cf382fe 100644
-                    --- a/deploy2ecscli/git/git.py
-                    +++ b/deploy2ecscli/git/git.py
-                    @@ -8,6 +8,7 @@ import subprocess
-                    from typing import List, Union, Optional
-                    
-                    from deploy2ecscli import logger
-                    +from deploy2ecscli.log import Level as LogLevel
-                    from deploy2ecscli.git.exceptions import NotGitRepositoryException
-                    
-                    
-                    @@ -87,6 +88,15 @@ class Git:
-                            result = self.__run(command.format(a, b, files, excludes))
-                            return result.splitlines()
-                    
-                    +    def print_diff(self, a, b, files=None, excludes=None) -> None:
-                    +        files = self.__to_git_files(files)
-                    +        excludes = self.__to_git_exclude(excludes)
-                    +
-                    +        command = "git --no-pager diff %s..%s %s %s" % (a, b, files, excludes)
-                    +        diff = self.__run(command)
-                    +
-                    +        logger.dump_diff(diff, level=LogLevel.VERBOSE)
-                    +
-                        @classmethod
-                        def __to_git_files(cls, files: Union[str, list, None] = None) -> str:
-                            files = files or []
-                    @@ -114,7 +124,7 @@ class Git:
-                    
-                        @classmethod
-                        def __run(cls, command: str):
-                    -        
-                    +
-                            logger.verbose('`%s`' % command)
-                    
-                            proc = subprocess.run(command, **cls.__RUN_OPTION)
-                    diff --git a/deploy2ecscli/usecases.py b/deploy2ecscli/usecases.py
-                    index dbb0e2b..7d42d11 100644
-                    --- a/deploy2ecscli/usecases.py
-                    +++ b/deploy2ecscli/usecases.py
-                    @@ -201,7 +201,7 @@ class BuildImageUseCase():
-                                log.warn(msg.format(config.repository_name, latest_image_commit))
-                                return None
-                    
-                    -        modified_files = self.__git.modified_files(
-                    +        modified_files = self.__git.diff_files(
-                                latest_image_commit, current_commit, config.dependencies, config.excludes)
-                            should_build = len(modified_files) != 0
-                            if should_build:
-                    diff --git a/tests/unit/__init__.py b/tests/unit/__init__.py
-                    index e69de29..8b13789 100644
-                    --- a/tests/unit/__init__.py
-                    +++ b/tests/unit/__init__.py
-                    @@ -0,0 +1 @@
-                        +"""
+                index 9e1896f..cf382fe 100644
+                --- a/deploy2ecscli/git/git.py
+                +++ b/deploy2ecscli/git/git.py
+                @@ -8,6 +8,7 @@ import subprocess
+                from typing import List, Union, Optional
+                
+                from deploy2ecscli import logger
+                +from deploy2ecscli.log import Level as LogLevel
+                from deploy2ecscli.git.exceptions import NotGitRepositoryException
+                
+                
+                @@ -87,6 +88,15 @@ class Git:
+                        result = self.__run(command.format(a, b, files, excludes))
+                        return result.splitlines()
+                
+                +    def print_diff(self, a, b, files=None, excludes=None) -> None:
+                +        files = self.__to_git_files(files)
+                +        excludes = self.__to_git_exclude(excludes)
+                +
+                +        command = "git --no-pager diff %s..%s %s %s" % (a, b, files, excludes)
+                +        diff = self.__run(command)
+                +
+                +        logger.dump_diff(diff, level=LogLevel.VERBOSE)
+                +
+                    @classmethod
+                    def __to_git_files(cls, files: Union[str, list, None] = None) -> str:
+                        files = files or []
+                @@ -114,7 +124,7 @@ class Git:
+                
+                    @classmethod
+                    def __run(cls, command: str):
+                -        
+                +
+                        logger.verbose('`%s`' % command)
+                
+                        proc = subprocess.run(command, **cls.__RUN_OPTION)
+                diff --git a/deploy2ecscli/usecases.py b/deploy2ecscli/usecases.py
+                index dbb0e2b..7d42d11 100644
+                --- a/deploy2ecscli/usecases.py
+                +++ b/deploy2ecscli/usecases.py
+                @@ -201,7 +201,7 @@ class BuildImageUseCase():
+                            log.warn(msg.format(config.repository_name, latest_image_commit))
+                            return None
+                
+                -        modified_files = self.__git.modified_files(
+                +        modified_files = self.__git.diff_files(
+                            latest_image_commit, current_commit, config.dependencies, config.excludes)
+                        should_build = len(modified_files) != 0
+                        if should_build:
+                diff --git a/tests/unit/__init__.py b/tests/unit/__init__.py
+                index e69de29..8b13789 100644
+                --- a/tests/unit/__init__.py
+                +++ b/tests/unit/__init__.py
+                @@ -0,0 +1 @@
+                +"""
 
                 return MagicMock(returncode=0, stdout=stdout.encode('utf8'))
 
@@ -208,9 +208,10 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = stack.enter_context(
-                mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value = self.DEFAULT_YAML
+            mock_open = \
+                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
+            mock_open.return_value.read.side_effect = \
+                iter([self.DEFAULT_YAML, ''])
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
@@ -264,9 +265,10 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = stack.enter_context(
-                mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value = self.DEFAULT_YAML
+            mock_open = \
+                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
+            mock_open.return_value.read.side_effect = \
+                iter([self.DEFAULT_YAML, ''])
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
@@ -344,9 +346,10 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = stack.enter_context(
-                mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value = self.DEFAULT_YAML
+            mock_open = \
+                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
+            mock_open.return_value.read.side_effect = \
+                iter([self.DEFAULT_YAML, ''])
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
@@ -409,9 +412,10 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = stack.enter_context(
-                mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value = self.DEFAULT_YAML
+            mock_open = \
+                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
+            mock_open.return_value.read.side_effect = \
+                iter([self.DEFAULT_YAML, ''])
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
@@ -475,9 +479,10 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = stack.enter_context(
-                mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value = self.DEFAULT_YAML
+            mock_open = \
+                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
+            mock_open.return_value.read.side_effect = \
+                iter([self.DEFAULT_YAML, ''])
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
