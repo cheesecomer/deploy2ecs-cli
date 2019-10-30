@@ -205,7 +205,8 @@ class TestBuildImageUseCase(unittest.TestCase):
                 # Should build
                 docker_client.images.build.assert_called_with(
                     path=image_config.context,
-                    dockerfile=image_config.docker_file,
+                    dockerfile=image_config.docker_file.replace(
+                        image_config.context, './'),
                     tag=image_config.tagged_uri('latest'),
                     nocache=False)
 
@@ -260,7 +261,8 @@ class TestBuildImageUseCase(unittest.TestCase):
                 # Should build
                 docker_client.images.build.assert_called_with(
                     path=image_config.context,
-                    dockerfile=image_config.docker_file,
+                    dockerfile=image_config.docker_file.replace(
+                        image_config.context, './'),
                     tag=image_config.tagged_uri('latest'),
                     nocache=False)
 
@@ -317,7 +319,8 @@ class TestBuildImageUseCase(unittest.TestCase):
                 # Should build
                 docker_client.images.build.assert_called_with(
                     path=image_config.context,
-                    dockerfile=image_config.docker_file,
+                    dockerfile=image_config.docker_file.replace(
+                        image_config.context, './'),
                     tag=image_config.tagged_uri('latest'),
                     nocache=False)
 
@@ -376,7 +379,8 @@ class TestBuildImageUseCase(unittest.TestCase):
                 # Should build
                 docker_client.images.build.assert_called_with(
                     path=image_config.context,
-                    dockerfile=image_config.docker_file,
+                    dockerfile=image_config.docker_file.replace(
+                        image_config.context, './'),
                     tag=image_config.tagged_uri('latest'),
                     nocache=False)
 
@@ -431,7 +435,8 @@ class TestBuildImageUseCase(unittest.TestCase):
                 # Should build
                 docker_client.images.build.assert_called_with(
                     path=image_config.context,
-                    dockerfile=image_config.docker_file,
+                    dockerfile=image_config.docker_file.replace(
+                        image_config.context, './'),
                     tag=image_config.repository_uri + ':latest',
                     nocache=True)
 
@@ -1250,7 +1255,7 @@ class TestRegisterServiceUseCase(unittest.TestCase):
                 ]
 
                 aws_client = MagicMock()
-                aws_client.ecs.service.describe.return_value = [ ]
+                aws_client.ecs.service.describe.return_value = []
 
                 subject = RegisterServiceUseCase(
                     config, aws_client, git_client, True)

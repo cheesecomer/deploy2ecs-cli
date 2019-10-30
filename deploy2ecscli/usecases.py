@@ -112,9 +112,15 @@ class BuildImageUseCase():
             [config.tagged_uri(x) for x in self.__additional_tags]
         tags = [image_uri_latest, image_uri] + additional_tags
         if not self.__dyr_run:
+            context_path = config.context
+            context_path = './' if context_path == '.' else context_path
+            context_path = context_path if context_path.endswith('/') else context_path + '/'
+
+            docker_file_path = config.docker_file
+            docker_file_path = re.sub('^' + context_path, './', docker_file_path)
             image, output = self.__docker.images.build(
-                path=config.context,
-                dockerfile=config.docker_file.replace(config.context, './'),
+                path=context_path,
+                dockerfile=docker_file_path,
                 tag=image_uri_latest,
                 nocache=self.__force_update)
 

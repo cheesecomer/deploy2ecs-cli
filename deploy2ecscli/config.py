@@ -168,6 +168,10 @@ class Application:
     services: List[Service]
 
     def __init__(self, images: List[dict], task_definitions: List[dict], services: List[dict]):
+        images = images or []
+        services = services or []
+        task_definitions = task_definitions or []
+
         images = [Image(**image) for image in images]  # type: List[Image]
         services = [Service(**service) for service in services]
 
@@ -179,8 +183,8 @@ class Application:
                 image.pop('repository_name')
                 bind_image.update(image)
 
-        task_definitions = [TaskDefinition(
-            **task_definition) for task_definition in task_definitions]
+        task_definitions = \
+            [TaskDefinition(**task_definition) for task_definition in task_definitions]
 
         object.__setattr__(self, 'images', images)
         object.__setattr__(self, 'task_definitions', task_definitions)

@@ -78,6 +78,7 @@ class App():
         git_client = Git()
         current_branch = git_client.current_branch
 
+
         configs = yaml.load(args.config, Loader=yaml.SafeLoader)
         config = next((v for x, v in configs.items()
                        if re.match(x, current_branch, re.IGNORECASE)), None)
