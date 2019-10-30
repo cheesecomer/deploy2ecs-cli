@@ -404,7 +404,7 @@ class RegisterTaskDefinitionUseCase():
             |      before: {0}
             |      after : {1}
             |"""
-            log.info(msg.format(json_commit_hash_b, json_commit_hash_a))
+            log.info(msg.format(json_commit_hash_b, json_commit_hash_a), margin_prefix='|')
             try:
                 git.print_diff(json_commit_hash_b,
                                json_commit_hash_a, json_template_path)
