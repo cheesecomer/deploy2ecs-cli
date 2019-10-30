@@ -142,7 +142,7 @@ class BeforeDeploy:
         object.__setattr__(self, 'tasks', tasks)
 
 
-@dataclasses.dataclass(init=False, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Service:
     name: str
     task_family: str
@@ -150,14 +150,9 @@ class Service:
     json_template: str
     before_deploy: BeforeDeploy = None
 
-    def __init__(self, name: str, task_family: str, cluster: str, json_template: str, before_deploy: dict = None):
-        object.__setattr__(self, 'name', name)
-        object.__setattr__(self, 'task_family', task_family)
-        object.__setattr__(self, 'cluster', cluster)
-        object.__setattr__(self, 'json_template', json_template)
-        if before_deploy is not None:
-            before_deploy = BeforeDeploy(**before_deploy)
-
+    def __post_init__(self):
+        if isinstance(self.before_deploy, dict):
+            before_deploy = BeforeDeploy(**self.before_deploy)
             object.__setattr__(self, 'before_deploy', before_deploy)
 
     def render_json(self, bind_valiables={}) -> dict:
@@ -180,16 +175,15 @@ class BindableImage(Image):
     bind_valiable: str = None
 
 
-@dataclasses.dataclass(init=False, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class TaskDefinition:
     json_template: str
     images: List[BindableImage]
 
-    def __init__(self, json_template: str, images: List[dict]):
-        images = [BindableImage(**bind_valiable) for bind_valiable in images]
-
-        object.__setattr__(self, 'images', images)
-        object.__setattr__(self, 'json_template', json_template)
+    def __post_init__(self):
+        if isinstance(self.images, list):
+            images = [BindableImage(**x) for x in self.images]
+            object.__setattr__(self, 'images', images)
 
     def render_json(self, bind_valiables: dict) -> dict:
         default_bind_valiables = {}
