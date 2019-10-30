@@ -347,7 +347,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
     }
     """
 
-    def __default_subprocer_run(self, command, hash_mapping = {}):
+    def __default_subprocer_run(self, command, hash_mapping={}):
         if command.startswith('git rev-parse --is-inside-work-tree'):
             return MagicMock(returncode=0, stdout=b'true')
 
@@ -437,7 +437,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             +"""
 
             return MagicMock(returncode=0, stdout=stdout.encode('utf8'))
-            
+
         return MagicMock(returncode=127, stderr=b'command not found')
 
     def test_when_unmatch_image_uri(self):
@@ -504,7 +504,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
 
             mock_aws.register_task_definition.return_value = \
                 register_task_definition
-            
+
             hash_mapping = {
                 './app/app/': app_tag,
                 './nginx/': nginx_tag
@@ -518,7 +518,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             App().run()
 
             mock_aws.register_task_definition.assert_called()
-            
+
     def test_when_unmatch_json_commit(self):
         from jinja2.utils import open_if_exists
         with ExitStack() as stack:
@@ -583,7 +583,84 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
 
             mock_aws.register_task_definition.return_value = \
                 register_task_definition
-            
+
+            hash_mapping = {
+                './app/app/': app_tag,
+                './nginx/': nginx_tag
+            }
+
+            mock_subprocer = \
+                stack.enter_context(mock.patch('subprocess.run'))
+            mock_subprocer.side_effect = \
+                lambda x, **_: self.__default_subprocer_run(x, hash_mapping)
+
+            App().run()
+
+            mock_aws.register_task_definition.assert_called()
+
+    def test_when_json_commit_empty(self):
+        from jinja2.utils import open_if_exists
+        with ExitStack() as stack:
+            app_tag = mimesis.Cryptographic().token_hex()
+            nginx_tag = mimesis.Cryptographic().token_hex()
+            params = [
+                'deploy2ecs',
+                'register-task-definition',
+                '--config', mimesis.File().file_name(),
+                '-q'
+            ]
+
+            stack.enter_context(mock.patch.object(sys, 'argv', params))
+
+            mock_open = \
+                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
+            mock_open = mock_open.return_value
+            mock_open.read.side_effect = \
+                iter([self.DEFAULT_YAML, ''])
+
+            stack.enter_context(mock.patch('jinja2.loaders.path.getmtime'))
+
+            mock_loader = \
+                stack.enter_context(mock.patch(
+                    'jinja2.loaders.open_if_exists'))
+            mock_loader = mock_loader.return_value
+            mock_loader.read.return_value = \
+                self.TEMPLATE_JSON.encode('utf8')
+
+            describe_task_definition =  \
+                self.RESPONSE_REQUEST_JSON \
+                    .replace('{', '{{') \
+                    .replace('}', '}}') \
+                    .replace('{{{{', '{') \
+                    .replace('}}}}', '}') \
+                    .format(
+                        revision=100,
+                        nginx_tag=nginx_tag,
+                        app_tag=app_tag,
+                        json_commit_hash='')
+            describe_task_definition = json.loads(describe_task_definition)
+
+            register_task_definition =  \
+                self.RESPONSE_REQUEST_JSON \
+                    .replace('{', '{{') \
+                    .replace('}', '}}') \
+                    .replace('{{{{', '{') \
+                    .replace('}}}}', '}') \
+                    .format(
+                        revision=101,
+                        nginx_tag=nginx_tag,
+                        app_tag=app_tag,
+                        json_commit_hash=mimesis.Cryptographic().token_hex())
+            register_task_definition = json.loads(register_task_definition)
+
+            mock_aws = stack.enter_context(mock.patch('boto3.client'))
+            mock_aws = mock_aws.return_value
+            mock_aws.describe_task_definition.return_value = \
+                describe_task_definition
+
+            mock_aws.register_task_definition.return_value = \
+                register_task_definition
+
             hash_mapping = {
                 './app/app/': app_tag,
                 './nginx/': nginx_tag

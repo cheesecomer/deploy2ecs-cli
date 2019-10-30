@@ -507,8 +507,9 @@ class RegisterServiceUseCase():
         |        Configuration updated at
         |          {1} 
         |    ****************************************************************************"""
-        msg = msg.format(latest_task_definition.arn,
-                         bind_valiables['JSON_COMMIT_HASH'])
+        msg = msg.format(
+            latest_task_definition.arn,
+            bind_valiables['JSON_COMMIT_HASH'])
         log.info(msg, margin_prefix='|')
         if active_service is not None:
             self.__updater_service(active_service, json)
@@ -536,7 +537,8 @@ class RegisterServiceUseCase():
     def __diff_service(self, service_a: EcsService, service_b: EcsService, json_template_path: str) -> bool:
         if service_b is None:
             log.newline()
-            log.warn('    Will do a force update, because service not exists')
+            log.warn(
+                '    Will do a force update, because active service not exists')
             log.newline()
             return True
 
@@ -549,7 +551,8 @@ class RegisterServiceUseCase():
 
         json_commit_hash_a = service_a.tags.get('JSON_COMMIT_HASH', None)
         json_commit_hash_b = service_b.tags.get('JSON_COMMIT_HASH', None)
-        if not json_commit_hash_b or json_commit_hash_b == 'None':
+        sha1_regex = re.compile(r'[0-9a-f]{5,40}')
+        if not json_commit_hash_b or not sha1_regex.match(json_commit_hash_b):
             log.newline()
             log.warn(
                 '    Will do a force update, because JSON_COMMIT_HASH not exists')
