@@ -51,12 +51,11 @@ class Repository():
         return ImageCollection(result)
 
 
-@dataclasses.dataclass(init=False, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class RepositoryCollection():
-    def __init__(self, ecr_client, config: Config = None):
-        object.__setattr__(self, 'ecr_client', ecr_client)
-        object.__setattr__(self, 'repositories', {})
-        object.__setattr__(self, 'config', config or Config.default)
+    ecr_client: object
+    config: Config = dataclasses.field(default_factory=lambda: Config.default)
+    repositories: dict = dataclasses.field(init=False, default_factory=dict)
 
     def __getitem__(self, key) -> Repository:
         ecr_client = object.__getattribute__(self, 'ecr_client')
