@@ -12,11 +12,12 @@ Usage:
     deploy2ecs --help
     deploy2ecs --version
 
-Options:
+Arguments:
     task                      : Execute task
                                     - build-image
                                     - register-task-definition
                                     - register-service
+Options:
     --help -h                 : Show this help message and exit
     --version                 : Show version
     --config -c <config_file> : Config file path
@@ -39,20 +40,20 @@ from deploy2ecscli.log import Level as LogLevel
 from deploy2ecscli.aws.client import Client as AwsClient
 from deploy2ecscli.git import Git
 
-
 class App():
     def run(self):
         argv = sys.argv
 
-        parser = argparse.ArgumentParser(usage=__doc__)
-        accept_tasks = [
-            'build-image',
-            'register-task-definition',
-            'register-service']
+        parser = argparse.ArgumentParser(usage=__doc__, allow_abbrev=False)
+        run_all = False
         if len(argv) > 1 and not argv[1].startswith('-'):
+            accept_tasks = [
+                'build-image',
+                'register-task-definition',
+                'register-service']
             parser.add_argument('task', choices=accept_tasks)
         else:
-            parser.add_argument('--task', choices=accept_tasks)
+            run_all = True
 
         parser.add_argument('--config', '-c', required=True,
                             type=open, metavar='config_file')
@@ -77,6 +78,7 @@ class App():
         git_client = Git()
         current_branch = git_client.current_branch
 
+
         configs = yaml.load(args.config, Loader=yaml.SafeLoader)
         config = next((v for x, v in configs.items()
                        if re.match(x, current_branch, re.IGNORECASE)), None)
@@ -91,7 +93,7 @@ class App():
         aws_client = AwsClient()
         aws_client.config.dry_run = args.dry_run
 
-        if args.task in ["build-image", None]:
+        if run_all or args.task == 'build-image':
             usecase = usecases.BuildImageUseCase(
                 config,
                 aws_client,
@@ -102,7 +104,7 @@ class App():
 
             usecase.execute()
 
-        if args.task in ["register-task-definition", None]:
+        if run_all or args.task == 'register-task-definition':
             usecase = usecases.RegisterTaskDefinitionUseCase(
                 config,
                 aws_client,
@@ -111,7 +113,7 @@ class App():
 
             usecase.execute()
 
-        if args.task in ["register-service", None]:
+        if run_all or args.task == 'register-service':
             usecase = usecases.RegisterServiceUseCase(
                 config,
                 aws_client,

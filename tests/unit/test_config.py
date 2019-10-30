@@ -60,16 +60,30 @@ class TestImage(unittest.TestCase):
             params.pop('excludes')
 
             actual = Image(**params)
+
+            expect['docker_file'] = './' + expect['docker_file'].split('/')[-1]
             self.assertEqual(expect, dataclasses.asdict(actual))
 
         with self.subTest('When with excludes'):
-            expect = fixtures.image(
-                excludes=[mimesis.File().file_name() for x in range(10)])
+            excludes = [mimesis.File().file_name() for x in range(10)]
+            expect = fixtures.image(excludes=excludes)
             params = expect.copy()
-
             params.pop('repository_name')
 
             actual = Image(**params)
+
+            expect['docker_file'] = './' + expect['docker_file'].split('/')[-1]
+            self.assertEqual(expect, dataclasses.asdict(actual))
+
+        with self.subTest('When META character in context'):
+            expect = fixtures.image(
+                context=R'\Users\included\meta.character\foo?\bar!\(and more...)\+++.txt')
+            params = expect.copy()
+            params.pop('repository_name')
+
+            actual = Image(**params)
+
+            expect['docker_file'] = './' + expect['docker_file'].split('/')[-1]
             self.assertEqual(expect, dataclasses.asdict(actual))
 
     def test_tagged_uri(self):
@@ -91,6 +105,8 @@ class TestBindableImage(unittest.TestCase):
             params.pop('excludes')
 
             actual = BindableImage(**params)
+
+            expect['docker_file'] = './' + expect['docker_file'].split('/')[-1]
             self.assertEqual(expect, dataclasses.asdict(actual))
 
         with self.subTest('When with excludes'):
@@ -101,6 +117,8 @@ class TestBindableImage(unittest.TestCase):
             params.pop('repository_name')
 
             actual = BindableImage(**params)
+
+            expect['docker_file'] = './' + expect['docker_file'].split('/')[-1]
             self.assertEqual(expect, dataclasses.asdict(actual))
 
 
@@ -196,7 +214,8 @@ class TestService(unittest.TestCase):
 
         self.assertEqual(expect, actual)
         instance.get_template.assert_called_with(subject.json_template)
-        mock_templete.render.assert_called_with(dict(bind_valiables, **default_bind_valiables))
+        mock_templete.render.assert_called_with(
+            dict(bind_valiables, **default_bind_valiables))
 
 
 class TestTaskDefinition(unittest.TestCase):
@@ -212,6 +231,9 @@ class TestTaskDefinition(unittest.TestCase):
             image.pop('repository_name')
             images.append(image)
         params['images'] = images
+
+        for image in expect['images']:
+            image['docker_file'] = './' + image['docker_file'].split('/')[-1]
 
         actual = TaskDefinition(**params)
         self.assertDictEqual(expect, dataclasses.asdict(actual))
@@ -257,5 +279,13 @@ class TestApplication(unittest.TestCase):
             task_definitions_parameterize(params['task_definitions'])
 
         actual = Application(**params)
+
+        for image in expect['images']:
+            image['docker_file'] = './' + image['docker_file'].split('/')[-1]
+
+        for task_definition in expect['task_definitions']:
+            for image in task_definition['images']:
+                image['docker_file'] = './' + \
+                    image['docker_file'].split('/')[-1]
 
         self.assertDictEqual(expect, dataclasses.asdict(actual))

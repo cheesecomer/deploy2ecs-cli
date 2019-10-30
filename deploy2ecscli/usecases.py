@@ -114,7 +114,7 @@ class BuildImageUseCase():
         if not self.__dyr_run:
             image, output = self.__docker.images.build(
                 path=config.context,
-                dockerfile=config.docker_file.replace(config.context, './'),
+                dockerfile=config.docker_file,
                 tag=image_uri_latest,
                 nocache=self.__force_update)
 
@@ -204,9 +204,10 @@ class BuildImageUseCase():
             log.warn(msg.format(config.repository_name, latest_image_commit))
             return None
 
-        modified_files = self.__git.diff_files(
-            latest_image_commit, current_commit,
-            config.dependencies, config.excludes)
+        modified_files = \
+            self.__git.diff_files(
+                latest_image_commit, current_commit,
+                config.dependencies, config.excludes)
         should_build = len(modified_files) != 0
         if should_build:
             msg = """
@@ -230,11 +231,14 @@ class BuildImageUseCase():
                 log.info('        => %s' % file)
             log.newline()
 
-            self.__git.print_diff(
-                latest_image_commit,
-                current_commit,
-                config.dependencies,
-                config.excludes)
+            try:
+                self.__git.print_diff(
+                    latest_image_commit,
+                    current_commit,
+                    config.dependencies,
+                    config.excludes)
+            except:
+                pass
 
             return None
 
@@ -404,10 +408,14 @@ class RegisterTaskDefinitionUseCase():
             |      before: {0}
             |      after : {1}
             |"""
-            log.info(msg.format(json_commit_hash_b, json_commit_hash_a))
+            msg = msg.format(json_commit_hash_b, json_commit_hash_a)
+            log.info(msg, margin_prefix='|')
+
             try:
-                git.print_diff(json_commit_hash_b,
-                               json_commit_hash_a, json_template_path)
+                self.__git.print_diff(
+                    json_commit_hash_b,
+                    json_commit_hash_a,
+                    json_template_path)
             except:
                 pass
         else:
@@ -499,8 +507,9 @@ class RegisterServiceUseCase():
         |        Configuration updated at
         |          {1} 
         |    ****************************************************************************"""
-        msg = msg.format(latest_task_definition.arn,
-                         bind_valiables['JSON_COMMIT_HASH'])
+        msg = msg.format(
+            latest_task_definition.arn,
+            bind_valiables['JSON_COMMIT_HASH'])
         log.info(msg, margin_prefix='|')
         if active_service is not None:
             self.__updater_service(active_service, json)
@@ -528,7 +537,8 @@ class RegisterServiceUseCase():
     def __diff_service(self, service_a: EcsService, service_b: EcsService, json_template_path: str) -> bool:
         if service_b is None:
             log.newline()
-            log.warn('    Will do a force update, because service not exists')
+            log.warn(
+                '    Will do a force update, because active service not exists')
             log.newline()
             return True
 
@@ -541,7 +551,8 @@ class RegisterServiceUseCase():
 
         json_commit_hash_a = service_a.tags.get('JSON_COMMIT_HASH', None)
         json_commit_hash_b = service_b.tags.get('JSON_COMMIT_HASH', None)
-        if not json_commit_hash_b or json_commit_hash_b == 'None':
+        sha1_regex = re.compile(r'[0-9a-f]{5,40}')
+        if not json_commit_hash_b or not sha1_regex.match(json_commit_hash_b):
             log.newline()
             log.warn(
                 '    Will do a force update, because JSON_COMMIT_HASH not exists')
@@ -554,8 +565,9 @@ class RegisterServiceUseCase():
                 '    Will do a update, because service configuration has been changed')
             log.info('      before: %s ' % json_commit_hash_b)
             log.info('      after : %s ' % json_commit_hash_a)
+
             try:
-                git.print_diff(
+                self.__git.print_diff(
                     json_commit_hash_b,
                     json_commit_hash_a,
                     json_template_path)
@@ -604,8 +616,8 @@ class RunTaskUseCase():
 
             self.__aws.ecs.task.wait_stopped(task.arn, self.__config.cluster)
 
-            tasks = self.__aws.ecs.task.describe(
-                task.arn, self.__config.cluster)
+            tasks = \
+                self.__aws.ecs.task.describe(task.arn, self.__config.cluster)
             task = tasks[0]
 
         self.__raise_exception(task.containers)

@@ -296,187 +296,201 @@ class TestTaskDefinition(unittest.TestCase):
 
 class TestTask(unittest.TestCase):
 
-    def test_run(self):
-        mock_attrs = {
-            'run_task.return_value': {
-                'tasks': [
-                    {
-                        'taskArn': mimesis.Cryptographic.token_hex(),
-                        'lastStatus': 'PROVISIONING',
-                        'containers': [
-                            {'name': mimesis.File().file_name(), 'exitCode': 0}
-                        ]
-                    }
-                ]
-            }
+    def __setup_for_run(self):
+        mock_client = MagicMock()
+        mock_client.run_task.return_value = {
+            'tasks': [
+                {
+                    'taskArn': mimesis.Cryptographic.token_hex(),
+                    'lastStatus': 'PROVISIONING',
+                    'containers': [
+                        {'name': mimesis.File().file_name(), 'exitCode': 0}
+                    ]
+                }
+            ]
         }
-        mock_client = MagicMock(**mock_attrs)
-        mock_client.reset_mock()
 
-        with self.subTest('When run'):
-            run_task_options = {}
-            subject = Task(mock_client)
-            subject.run(run_task_options)
-            mock_client.run_task.assert_called()
+        return mock_client
 
-        mock_client.reset_mock()
+    def test_run(self):
+        mock_client = self.__setup_for_run()
+        expect = mock_client.run_task.return_value
 
-        with self.subTest('When dry run'):
-            run_task_options = {}
-            subject = Task(mock_client, config=Config(dry_run=True))
-            actual = subject.run(run_task_options)
-            mock_client.run_task.assert_not_called()
+        run_task_options = {}
+        subject = Task(mock_client)
+        actual = subject.run(run_task_options)
 
-            self.assertIsNone(actual.arn)
-            self.assertEqual(actual.last_status, 'PROVISIONING')
-            self.assertListEqual([0], [x.exit_code for x in actual.containers])
+        mock_client.run_task.assert_called()
+
+        self.assertEqual(expect['tasks'][0]['taskArn'], actual.arn)
+        self.assertEqual(expect['tasks'][0]['lastStatus'], actual.last_status)
+        self.assertListEqual([0], [x.exit_code for x in actual.containers])
+
+    def test_run_when_dry_run(self):
+        mock_client = self.__setup_for_run()
+
+        run_task_options = {}
+        subject = Task(mock_client, config=Config(dry_run=True))
+        actual = subject.run(run_task_options)
+
+        mock_client.run_task.assert_not_called()
+
+        self.assertIsNone(actual.arn)
+        self.assertEqual('PROVISIONING', actual.last_status)
+        self.assertListEqual([0], [x.exit_code for x in actual.containers])
+
+    def __setup_for_describe(self):
+        task_arns = [mimesis.Cryptographic.token_hex() for x in range(10)]
+        mock_client = MagicMock()
+        mock_client.describe_tasks.return_value = {
+            'tasks': [
+                {
+                    'taskArn': mimesis.Cryptographic.token_hex(),
+                    'lastStatus': 'PROVISIONING',
+                    'containers': [
+                        {'name': mimesis.File().file_name(), 'exitCode': 0}
+                    ]
+                }
+            ],
+            'failures': []
+        }
+
+        return mock_client, task_arns
 
     def test_describe(self):
-        task_arns = [mimesis.Cryptographic.token_hex() for x in range(10)]
-        mock_attrs = {
-            'describe_tasks.return_value': {
-                'tasks': [
-                    {
-                        'taskArn': mimesis.Cryptographic.token_hex(),
-                        'lastStatus': 'PROVISIONING',
-                        'containers': [
-                            {'name': mimesis.File().file_name(), 'exitCode': 0}
-                        ]
-                    }
-                ],
-                'failures': []
-            }
-        }
+        mock_client, task_arns = self.__setup_for_describe()
+        expect = mock_client.describe_tasks.return_value
 
-        mock_client = MagicMock(**mock_attrs)
-        mock_client.reset_mock()
+        subject = Task(mock_client)
+        actual = subject.describe(task_arns)
 
-        with self.subTest('When run'):
+        mock_client.describe_tasks.assert_called_with(tasks=task_arns)
+
+        self.assertEqual(1, len(actual))
+        self.assertEqual(expect['tasks'][0]['taskArn'], actual[0].arn)
+        self.assertEqual(expect['tasks'][0]['lastStatus'], actual[0].last_status)
+        self.assertListEqual([0], [x.exit_code for x in actual[0].containers])
+        
+
+    def test_describe_when_with_cluster(self):
+        mock_client, task_arns = self.__setup_for_describe()
+        cluster = mimesis.Person().username()
+        subject = Task(mock_client)
+        subject.describe(task_arns, cluster=cluster)
+
+        mock_client.describe_tasks.assert_called_with(
+            tasks=task_arns, 
+            cluster=cluster)
+
+    def test_describe_when_task_is_none(self):
+        mock_client, _ = self.__setup_for_describe()
+        subject = Task(mock_client)
+        subject.describe(None)
+
+        mock_client.describe_tasks.assert_called_with(tasks=[])
+
+    def test_describe_when_task_is_str(self):
+        mock_client, task_arns = self.__setup_for_describe()
+        subject = Task(mock_client)
+        subject.describe(task_arns[0])
+
+        mock_client.describe_tasks.assert_called_with(tasks=task_arns[0:1])
+
+    def test_describe_when_failures(self):
+        mock_client, task_arns = self.__setup_for_describe()
+        mock_client.describe_tasks.return_value = {
+            'tasks': [],
+            'failures': [
+                {
+                    'arn': mimesis.Cryptographic().token_hex,
+                    'reason': mimesis.Text().sentence()
+                },
+                {
+                    'arn': mimesis.Cryptographic().token_hex,
+                    'reason': mimesis.Text().sentence()
+                },
+                {
+                    'arn': mimesis.Cryptographic().token_hex,
+                    'reason': mimesis.Text().sentence()
+                },
+            ]}
+
+        with self.assertRaises(DescribeFailedException):
             subject = Task(mock_client)
             subject.describe(task_arns)
-            mock_client.describe_tasks.assert_called_with(tasks=task_arns)
 
-        mock_client.reset_mock()
+    def test_describe_when_dry_run(self):
+        mock_client, _ = self.__setup_for_describe()
+        subject = Task(mock_client, config=Config(dry_run=True))
+        actual = subject.describe(None)
 
-        with self.subTest('When with cluster'):
-            cluster = mimesis.Person().username()
-            subject = Task(mock_client)
-            subject.describe(task_arns, cluster=cluster)
-            mock_client.describe_tasks.assert_called_with(
-                tasks=task_arns, cluster=cluster)
+        self.assertEqual('PROVISIONING', actual[0].last_status)
 
-        mock_client.reset_mock()
 
-        with self.subTest('When task is None'):
-            subject = Task(mock_client)
-            subject.describe(None)
-            mock_client.describe_tasks.assert_called_with(tasks=[])
+    def test_describe_when_dry_run_multiple(self):
+        mock_client, _ = self.__setup_for_describe()
+        expect_task_status = [
+            'PROVISIONING',
+            'PENDING',
+            'ACTIVATING',
+            'RUNNING',
+            'DEACTIVATING',
+            'STOPPING',
+            'DEPROVISIONING',
+            'STOPPED'
+        ]
 
-        mock_client.reset_mock()
-
-        with self.subTest('When task is str'):
-            subject = Task(mock_client)
-            subject.describe(task_arns[0])
-            mock_client.describe_tasks.assert_called_with(tasks=task_arns[0:1])
-
-        mock_client.reset_mock()
-
-        with self.subTest('When failures'):
-            mock_client.describe_tasks.return_value = {
-                'tasks': [],
-                'failures': [
-                    {
-                        'arn': mimesis.Cryptographic().token_hex,
-                        'reason': mimesis.Text().sentence()
-                    },
-                    {
-                        'arn': mimesis.Cryptographic().token_hex,
-                        'reason': mimesis.Text().sentence()
-                    },
-                    {
-                        'arn': mimesis.Cryptographic().token_hex,
-                        'reason': mimesis.Text().sentence()
-                    },
-                ]}
-
-            with self.assertRaises(DescribeFailedException):
-                subject = Task(mock_client)
-                subject.describe(task_arns)
-
-        mock_client.reset_mock()
-
-        with self.subTest('When dry run'):
-            subject = Task(mock_client, config=Config(dry_run=True))
+        subject = Task(mock_client, config=Config(dry_run=True))
+        actual_task_status = []
+        for _ in expect_task_status * 2:
             actual = subject.describe(None)
-            self.assertEqual('PROVISIONING', actual[0].last_status)
+            actual_task_status.append(actual[0].last_status)
 
-        with self.subTest('When dry run multiple'):
-            expect_task_status = [
-                'PROVISIONING',
-                'PENDING',
-                'ACTIVATING',
-                'RUNNING',
-                'DEACTIVATING',
-                'STOPPING',
-                'DEPROVISIONING',
-                'STOPPED'
-            ]
+        self.assertListEqual(expect_task_status * 2, actual_task_status)
 
-            subject = Task(mock_client, config=Config(dry_run=True))
-            actual_task_status = []
-            for _ in expect_task_status * 2:
-                actual = subject.describe(None)
-                actual_task_status.append(actual[0].last_status)
-
-            self.assertListEqual(expect_task_status * 2, actual_task_status)
-
-    def test_wait_stopped(self):
+    def __setup_for_wait_stopped(self):
         task_arns = [mimesis.Cryptographic.token_hex() for x in range(10)]
         mock_waiter = MagicMock()
-        mock_attrs = {
-            'get_waiter.return_value': mock_waiter
-        }
+        mock_client = MagicMock()
+        mock_client.get_waiter.return_value = mock_waiter
 
-        mock_client = MagicMock(**mock_attrs)
-        mock_client.reset_mock()
+        return mock_client, mock_waiter, task_arns
 
-        with self.subTest('When run'):
-            subject = Task(mock_client)
-            subject.wait_stopped(task_arns)
-            mock_client.get_waiter.assert_called_with('tasks_stopped')
-            mock_waiter.wait.assert_called_with(tasks=task_arns)
+    def test_wait_stopped_wehn_tasks_is_list(self):
+        mock_client, mock_waiter, task_arns = self.__setup_for_wait_stopped()
+        subject = Task(mock_client)
+        subject.wait_stopped(task_arns)
+        mock_client.get_waiter.assert_called_with('tasks_stopped')
+        mock_waiter.wait.assert_called_with(tasks=task_arns)
 
-        mock_client.reset_mock()
+    def test_wait_stopped_wehn_tasks_is_none(self):
+        mock_client, mock_waiter, _ = self.__setup_for_wait_stopped()
+        subject = Task(mock_client)
+        subject.wait_stopped(None)
+        mock_client.get_waiter.assert_called_with('tasks_stopped')
+        mock_waiter.wait.assert_called_with(tasks=[])
 
-        with self.subTest('When tasks is None'):
-            subject = Task(mock_client)
+    def test_wait_stopped_wehn_tasks_is_str(self):
+        mock_client, mock_waiter, task_arns = self.__setup_for_wait_stopped()
+        subject = Task(mock_client)
+        subject.wait_stopped(task_arns[0])
+        mock_client.get_waiter.assert_called_with('tasks_stopped')
+        mock_waiter.wait.assert_called_with(tasks=task_arns[0:1])
+
+    def test_wait_stopped_when_with_cluster(self):
+        mock_client, mock_waiter, task_arns = self.__setup_for_wait_stopped()
+        cluster = mimesis.Person().username()
+        subject = Task(mock_client)
+        subject.wait_stopped(task_arns, cluster=cluster)
+        mock_client.get_waiter.assert_called_with('tasks_stopped')
+        mock_waiter.wait.assert_called_with(
+            tasks=task_arns, cluster=cluster)
+
+    def test_wait_stopped_when_dry_run(self):
+        mock_client, mock_waiter, _ = self.__setup_for_wait_stopped()
+        with mock.patch('time.sleep') as mock_sleep:
+            subject = Task(mock_client, config=Config(dry_run=True))
             subject.wait_stopped(None)
-            mock_client.get_waiter.assert_called_with('tasks_stopped')
-            mock_waiter.wait.assert_called_with(tasks=[])
 
-        mock_client.reset_mock()
-
-        with self.subTest('When tasks is str'):
-            subject = Task(mock_client)
-            subject.wait_stopped(task_arns[0])
-            mock_client.get_waiter.assert_called_with('tasks_stopped')
-            mock_waiter.wait.assert_called_with(tasks=task_arns[0:1])
-
-        mock_client.reset_mock()
-
-        with self.subTest('When with cluster'):
-            cluster = mimesis.Person().username()
-            subject = Task(mock_client)
-            subject.wait_stopped(task_arns, cluster=cluster)
-            mock_client.get_waiter.assert_called_with('tasks_stopped')
-            mock_waiter.wait.assert_called_with(
-                tasks=task_arns, cluster=cluster)
-
-        mock_client.reset_mock()
-
-        with self.subTest('When dry run'):
-            with mock.patch('time.sleep') as mock_sleep:
-                subject = Task(mock_client, config=Config(dry_run=True))
-                subject.wait_stopped(None)
-                mock_waiter.wait.assert_not_called()
-                mock_sleep.assert_called()
+        mock_waiter.wait.assert_not_called()
+        mock_sleep.assert_called()
