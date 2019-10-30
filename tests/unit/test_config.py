@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import mimesis
 
+from deploy2ecscli.config import BindableVariable
 from deploy2ecscli.config import BindableConstVariable
 from deploy2ecscli.config import BindableVariableFromEnv
 from deploy2ecscli.config import Image
@@ -50,6 +51,52 @@ def task_definitions_parameterize(task_definitions):
         result.append(task_definition)
 
     return result
+
+
+class TestBindableVariable(unittest.TestCase):
+    def test_init(self):
+        expect = [
+            {
+                'name': mimesis.Person().username(),
+                'value': mimesis.Cryptographic().token_hex()
+            },
+            {
+                'name': mimesis.Person().username(),
+                'value': mimesis.Cryptographic().token_hex()
+            },
+            {
+                'name': mimesis.Person().username(),
+                'value': mimesis.Cryptographic().token_hex()
+            },
+            {
+                'name': mimesis.Person().username(),
+                'value': mimesis.Cryptographic().token_hex()
+            },
+            {
+                'name': mimesis.Person().username(),
+                'value': mimesis.Cryptographic().token_hex()
+            },
+            {
+                'name': mimesis.Person().username(),
+                'value_from': mimesis.Food().vegetable()
+            },
+            {
+                'name': mimesis.Person().username(),
+                'value_from': mimesis.Food().vegetable()
+            },
+            {
+                'name': mimesis.Person().username(),
+                'value_from': mimesis.Food().vegetable()
+            }
+        ]
+
+        params = expect.copy()
+        params.append({'name': mimesis.Person().username()})
+
+        actual = BindableVariable.parse(params)
+        actual = [dataclasses.asdict(x) for x in actual]
+
+        self.assertListEqual(expect, actual)
 
 
 class TestBindableConstVariable(unittest.TestCase):
@@ -180,6 +227,14 @@ class TestTask(unittest.TestCase):
     def test_init(self):
         expect = fixtures.task()
         params = expect.copy()
+
+        actual = Task(**params)
+        self.assertEqual(expect, dataclasses.asdict(actual))
+
+    def test_init_when_without_bindable_variables(self):
+        expect = fixtures.task()
+        params = expect.copy()
+        params.pop('bindable_variables')
 
         actual = Task(**params)
         self.assertEqual(expect, dataclasses.asdict(actual))

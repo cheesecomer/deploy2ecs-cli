@@ -22,7 +22,7 @@ class Image:
     context: str
     docker_file: str
     dependencies: List[str]
-    excludes: List[str] = dataclasses.field(default_factory=lambda: [])
+    excludes: List[str] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         repository_name = '/'.join(self.repository_uri.split('/')[1:])
@@ -69,6 +69,27 @@ class BindableVariable(ABC):
     def to_dict(self) -> dict:
         return {self.name: self.get_value()}
 
+    @classmethod
+    def parse(clz, variables: List[dict]):
+        clz_mapping = {
+            'value': BindableConstVariable,
+            'value_from': BindableVariableFromEnv
+        }
+
+        clz_mapping = clz_mapping.items()
+
+        result = []
+        for variable in variables:
+            clazz = \
+                (v for k, v in clz_mapping if variable.get(k))
+            clazz = next(clazz, None)
+            if clazz is None:
+                continue
+
+            result.append(clazz(**variable))
+
+        return result
+
 
 @dataclasses.dataclass(frozen=True)
 class BindableConstVariable(BindableVariable):
@@ -91,6 +112,13 @@ class Task:
     task_family: str
     cluster: str
     json_template: str
+    bindable_variables: List[BindableVariable] \
+        = dataclasses.field(default_factory=list)
+
+    def __post_init__(self):
+        bindable_variables = self.bindable_variables
+        bindable_variables = BindableVariable.parse(bindable_variables)
+        object.__setattr__(self, 'bindable_variables', bindable_variables)
 
     def render_json(self) -> dict:
         bind_valiables = {
@@ -107,7 +135,7 @@ class Task:
 
 @dataclasses.dataclass(init=False, frozen=True)
 class BeforeDeploy:
-    tasks: List[Task] = dataclasses.field(default_factory=lambda: [])
+    tasks: List[Task] = dataclasses.field(default_factory=list)
 
     def __init__(self, tasks: List[dict] = []):
         tasks = [Task(**task) for task in tasks]

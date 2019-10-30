@@ -3,6 +3,7 @@ import mimesis
 
 def task():
     return {
+        'bindable_variables': [],
         'task_family': mimesis.Person().username(),
         'cluster': mimesis.Person().username(),
         'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name())
