@@ -86,8 +86,6 @@ class TestImage(unittest.TestCase):
             expect['docker_file'] = './' + expect['docker_file'].split('/')[-1]
             self.assertEqual(expect, dataclasses.asdict(actual))
 
-            print(dataclasses.asdict(actual))
-
     def test_tagged_uri(self):
         tag = mimesis.Person().username
         params = fixtures.image(exclude_repository_name=True)
