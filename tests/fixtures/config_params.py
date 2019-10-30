@@ -9,16 +9,17 @@ def task():
     }
 
 
-def image(excludes=[], exclude_repository_name: bool = False) -> dict:
+def image(context=None, excludes=[], exclude_repository_name: bool = False) -> dict:
     repository_name = mimesis.Person().username()
-    context_path = mimesis.Path().project_dir().replace('\\', '/')
-    context_path = context_path if context_path.endswith('/') else context_path + '/'
+    context = context or mimesis.Path().project_dir()
+    context = context.replace('\\', '/')
+    context = context if context.endswith('/') else context + '/'
     result = {
         'name': mimesis.Person().username(),
         'repository_uri': '%s/%s' % (mimesis.Cryptographic().token_hex(), repository_name),
         'repository_name': repository_name,
-        'context': context_path,
-        'docker_file': context_path + mimesis.File().file_name(),
+        'context': context,
+        'docker_file': context + mimesis.File().file_name(),
         'dependencies': [mimesis.File().file_name() for x in range(10)],
         'excludes': excludes
     }

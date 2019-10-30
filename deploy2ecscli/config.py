@@ -3,9 +3,11 @@
 # -*- coding: utf-8 -*-
 # vi: set ft=python :
 
-from typing import List, Optional
+import re
 import dataclasses
 import json as json_parser
+
+from typing import List, Optional
 
 from jinja2 import Template, Environment, FileSystemLoader
 
@@ -22,6 +24,29 @@ class Image:
 
     def __post_init__(self):
         repository_name = '/'.join(self.repository_uri.split('/')[1:])
+
+        context = self.context
+        context = context.replace('\\', '/')
+        context = './' if context == '.' else context
+        context = context if context.endswith('/') else context + '/'
+
+        reg_context = context \
+            .replace('|', '\\|') \
+            .replace('?', '\\?') \
+            .replace('+', '\\+') \
+            .replace('.', '\\.') \
+            .replace('{', '\\{') \
+            .replace('}', '\\}') \
+            .replace('(', '\\(') \
+            .replace(')', '\\)') \
+            .replace('[', '\\[') \
+            .replace(']', '\\]')
+
+        docker_file = self.docker_file
+        docker_file = re.sub('^' + reg_context, './', docker_file)
+
+        object.__setattr__(self, 'context', context)
+        object.__setattr__(self, 'docker_file', docker_file)
         object.__setattr__(self, 'repository_name', repository_name)
 
     def tagged_uri(self, tag):
@@ -184,7 +209,8 @@ class Application:
                 bind_image.update(image)
 
         task_definitions = \
-            [TaskDefinition(**task_definition) for task_definition in task_definitions]
+            [TaskDefinition(**task_definition)
+             for task_definition in task_definitions]
 
         object.__setattr__(self, 'images', images)
         object.__setattr__(self, 'task_definitions', task_definitions)
