@@ -1,0 +1,1 @@
+coverage run --source='.' --omit='*/tests/*','setup.py' -m unittest -k integration -v && coverage xml -i && coverage report -i || coverage xml -i

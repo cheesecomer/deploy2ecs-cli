@@ -23,6 +23,9 @@ class TestRegisterService(unittest.TestCase):
                 cluster: ecs-cluster
                 task_family: example_application
                 json_template: ./config/application.json
+                bind_variables:
+                    -   name: ACCOUNT_ID
+                        value: 99999999
                 before_deploy:
                     tasks:
                         -   task_family: migrate
@@ -38,7 +41,7 @@ class TestRegisterService(unittest.TestCase):
             {
                 "containerPort": 80,
                 "containerName": "nginx",
-                "targetGroupArn": "arn:aws:elasticloadbalancing:REGION:ACCOUNT_ID:targetgroup/example-application/xxxxXXXXxxxxXXXX"
+                "targetGroupArn": "arn:aws:elasticloadbalancing:REGION:{{ ACCOUNT_ID }}:targetgroup/example-application/xxxxXXXXxxxxXXXX"
             }
         ],
         "desiredCount": 2,

@@ -93,14 +93,14 @@ class TestBindableVariableCollection(unittest.TestCase):
         params = expect.copy()
         params.append({'name': mimesis.Person().username()})
 
-        actual = BindableVariableCollection(params)
+        actual = BindableVariableCollection(params, True)
         actual = [dataclasses.asdict(x) for x in actual]
 
         self.assertListEqual(expect, actual)
 
 class TestBindableConstVariable(unittest.TestCase):
     def test_init(self):
-        self.maxDiff = None
+        # self.maxDiff = None
         expect = {
             'name': mimesis.Person().username(),
             'value': mimesis.Cryptographic().token_hex()
@@ -125,7 +125,7 @@ class TestBindableConstVariable(unittest.TestCase):
 
 class TestBindableVariableFromEnv(unittest.TestCase):
     def test_init(self):
-        self.maxDiff = None
+        # self.maxDiff = None
         expect = {
             'name': mimesis.Person().username(),
             'value_from': mimesis.Food().vegetable()
@@ -234,6 +234,7 @@ class TestTask(unittest.TestCase):
         expect = fixtures.task()
         params = expect.copy()
         params.pop('bind_variables')
+        expect['bind_variables'] = []
 
         actual = Task(**params)
         self.assertEqual(expect, dataclasses.asdict(actual))
@@ -255,10 +256,13 @@ class TestTask(unittest.TestCase):
 
         self.assertEqual(expect, actual)
         instance.get_template.assert_called_with(subject.json_template)
-        mock_templete.render.assert_called_with({
+
+        bind_variables = {
             'TASK_FAMILY': subject.task_family,
             'CLUSTER': subject.cluster,
-        })
+        }
+        expect_bind_variables = dict(bind_variables, **subject.bind_variables.asdict())
+        mock_templete.render.assert_called_with(expect_bind_variables)
 
 
 class TestBeforeDeploy(unittest.TestCase):
@@ -313,22 +317,24 @@ class TestService(unittest.TestCase):
         instance.get_template.return_value = mock_templete
 
         subject = Service(**fixtures.service())
-        default_bind_variables = {
-            'TASK_FAMILY': subject.task_family,
-            'CLUSTER': subject.cluster,
-        }
         actual = subject.render_json(bind_variables)
 
         self.assertEqual(expect, actual)
         instance.get_template.assert_called_with(subject.json_template)
-        mock_templete.render.assert_called_with(
-            dict(bind_variables, **default_bind_variables))
+
+        expect_bind_variables = {}
+        default_bind_variables = {
+            'TASK_FAMILY': subject.task_family,
+            'CLUSTER': subject.cluster,
+        }
+        expect_bind_variables = dict(expect_bind_variables, **bind_variables)
+        expect_bind_variables = dict(expect_bind_variables, **default_bind_variables)
+        expect_bind_variables = dict(expect_bind_variables, **subject.bind_variables.asdict())
+        mock_templete.render.assert_called_with(expect_bind_variables)
 
 
 class TestTaskDefinition(unittest.TestCase):
     def test_init(self):
-        self.maxDiff = None
-
         expect = fixtures.task_definition()
 
         params = expect.copy()
@@ -367,7 +373,9 @@ class TestTaskDefinition(unittest.TestCase):
 
         self.assertEqual(expect, actual)
         instance.get_template.assert_called_with(subject.json_template)
-        mock_templete.render.assert_called_with(bind_variables)
+
+        expect_bind_variables = dict(bind_variables, **subject.bind_variables.asdict())
+        mock_templete.render.assert_called_with(expect_bind_variables)
 
 
 class TestApplication(unittest.TestCase):

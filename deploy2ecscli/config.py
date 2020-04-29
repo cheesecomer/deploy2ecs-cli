@@ -85,25 +85,29 @@ class BindableVariableFromEnv(BindableVariable):
     def get_value(self) -> str:
         return os.environ.get(self.value_from, '')
 
-
 class BindableVariableCollection(list):
-    def __init__(self, variables: List[dict]):
-        clz_mapping = {
-            'value': BindableConstVariable,
-            'value_from': BindableVariableFromEnv
-        }
+    def __init__(self, variables: List[dict], parse: bool = False):
+        if parse:
+            clz_mapping = {
+                'value': BindableConstVariable,
+                'value_from': BindableVariableFromEnv
+            }
+            clz_mapping = clz_mapping.items()
 
-        clz_mapping = clz_mapping.items()
+            for variable in variables:
+                clazz = \
+                    (v for k, v in clz_mapping if variable.get(k))
+                clazz = next(clazz, None)
+                if clazz is None:
+                    continue
 
-        for variable in variables:
-            clazz = \
-                (v for k, v in clz_mapping if variable.get(k))
-            clazz = next(clazz, None)
-            if clazz is None:
-                continue
+                self.append(clazz(**variable))
+        else:
+            for variable in variables:
+                self.append(variable)
 
-            self.append(clazz(**variable))
-
+    def asdict(self):
+        return dict([x.to_tuple() for x in self])
 
 @dataclasses.dataclass(frozen=True)
 class Task:
@@ -115,7 +119,7 @@ class Task:
 
     def __post_init__(self):
         bind_variables = self.bind_variables
-        bind_variables = BindableVariableCollection(bind_variables)
+        bind_variables = BindableVariableCollection(bind_variables, True)
         object.__setattr__(self, 'bind_variables', bind_variables)
 
     def render_json(self) -> dict:
@@ -123,6 +127,8 @@ class Task:
             'TASK_FAMILY': self.task_family,
             'CLUSTER': self.cluster,
         }
+
+        bind_variables = dict(bind_variables, **self.bind_variables.asdict())
 
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
@@ -152,7 +158,7 @@ class Service:
 
     def __post_init__(self):
         bind_variables = self.bind_variables
-        bind_variables = BindableVariableCollection(bind_variables)
+        bind_variables = BindableVariableCollection(bind_variables, True)
         object.__setattr__(self, 'bind_variables', bind_variables)
 
         if isinstance(self.before_deploy, dict):
@@ -166,6 +172,7 @@ class Service:
         }
 
         bind_variables = dict(default_bind_variables, **bind_variables)
+        bind_variables = dict(bind_variables, **self.bind_variables.asdict())
 
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
@@ -188,7 +195,7 @@ class TaskDefinition:
 
     def __post_init__(self):
         bind_variables = self.bind_variables
-        bind_variables = BindableVariableCollection(bind_variables)
+        bind_variables = BindableVariableCollection(bind_variables, True)
         object.__setattr__(self, 'bind_variables', bind_variables)
 
         if isinstance(self.images, list):
@@ -199,6 +206,7 @@ class TaskDefinition:
         default_bind_variables = {}
 
         bind_variables = dict(bind_variables, **default_bind_variables)
+        bind_variables = dict(bind_variables, **self.bind_variables.asdict())
 
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
