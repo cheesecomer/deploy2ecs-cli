@@ -3,11 +3,13 @@
 # -*- coding: utf-8 -*-
 # vi: set ft=python :
 
+from abc import ABC, abstractmethod
+import os
 import re
 import dataclasses
 import json as json_parser
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from jinja2 import Template, Environment, FileSystemLoader
 
@@ -20,7 +22,7 @@ class Image:
     context: str
     docker_file: str
     dependencies: List[str]
-    excludes: List[str] = dataclasses.field(default_factory=lambda: [])
+    excludes: List[str] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         repository_name = '/'.join(self.repository_uri.split('/')[1:])
@@ -57,90 +59,158 @@ class Image:
 
 
 @dataclasses.dataclass(frozen=True)
+class BindableVariable(ABC):
+    name: str
+
+    @abstractmethod
+    def get_value(self) -> str:
+        raise NotImplementedError()
+
+    def to_tuple(self) -> Tuple[str, str]:
+        return (self.name, self.get_value())
+
+
+@dataclasses.dataclass(frozen=True)
+class BindableConstVariable(BindableVariable):
+    value: str
+
+    def get_value(self) -> str:
+        return self.value
+
+
+@dataclasses.dataclass(frozen=True)
+class BindableVariableFromEnv(BindableVariable):
+    value_from: str
+
+    def get_value(self) -> str:
+        return os.environ.get(self.value_from, '')
+
+class BindableVariableCollection(list):
+    def __init__(self, variables: List[dict], parse: bool = False):
+        if parse:
+            clz_mapping = {
+                'value': BindableConstVariable,
+                'value_from': BindableVariableFromEnv
+            }
+            clz_mapping = clz_mapping.items()
+
+            for variable in variables:
+                clazz = \
+                    (v for k, v in clz_mapping if variable.get(k))
+                clazz = next(clazz, None)
+                if clazz is None:
+                    continue
+
+                self.append(clazz(**variable))
+        else:
+            for variable in variables:
+                self.append(variable)
+
+    def asdict(self):
+        return dict([x.to_tuple() for x in self])
+
+@dataclasses.dataclass(frozen=True)
 class Task:
     task_family: str
     cluster: str
     json_template: str
+    bind_variables: BindableVariableCollection \
+        = dataclasses.field(default_factory=list)
+
+    def __post_init__(self):
+        bind_variables = self.bind_variables
+        bind_variables = BindableVariableCollection(bind_variables, True)
+        object.__setattr__(self, 'bind_variables', bind_variables)
 
     def render_json(self) -> dict:
-        bind_valiables = {
+        bind_variables = {
             'TASK_FAMILY': self.task_family,
             'CLUSTER': self.cluster,
         }
 
+        bind_variables = dict(bind_variables, **self.bind_variables.asdict())
+
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
-        json = templete.render(bind_valiables)
+        json = templete.render(bind_variables)
 
         return json_parser.loads(json)
 
 
 @dataclasses.dataclass(init=False, frozen=True)
 class BeforeDeploy:
-    tasks: List[Task] = dataclasses.field(default_factory=lambda: [])
+    tasks: List[Task] = dataclasses.field(default_factory=list)
 
     def __init__(self, tasks: List[dict] = []):
         tasks = [Task(**task) for task in tasks]
         object.__setattr__(self, 'tasks', tasks)
 
 
-@dataclasses.dataclass(init=False, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Service:
     name: str
     task_family: str
     cluster: str
     json_template: str
     before_deploy: BeforeDeploy = None
+    bind_variables: BindableVariableCollection \
+        = dataclasses.field(default_factory=list)
 
-    def __init__(self, name: str, task_family: str, cluster: str, json_template: str, before_deploy: dict = None):
-        object.__setattr__(self, 'name', name)
-        object.__setattr__(self, 'task_family', task_family)
-        object.__setattr__(self, 'cluster', cluster)
-        object.__setattr__(self, 'json_template', json_template)
-        if before_deploy is not None:
-            before_deploy = BeforeDeploy(**before_deploy)
+    def __post_init__(self):
+        bind_variables = self.bind_variables
+        bind_variables = BindableVariableCollection(bind_variables, True)
+        object.__setattr__(self, 'bind_variables', bind_variables)
 
+        if isinstance(self.before_deploy, dict):
+            before_deploy = BeforeDeploy(**self.before_deploy)
             object.__setattr__(self, 'before_deploy', before_deploy)
 
-    def render_json(self, bind_valiables={}) -> dict:
-        default_bind_valiables = {
+    def render_json(self, bind_variables={}) -> dict:
+        default_bind_variables = {
             'TASK_FAMILY': self.task_family,
             'CLUSTER': self.cluster,
         }
 
-        bind_valiables = dict(default_bind_valiables, **bind_valiables)
+        bind_variables = dict(default_bind_variables, **bind_variables)
+        bind_variables = dict(bind_variables, **self.bind_variables.asdict())
 
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
-        json = templete.render(bind_valiables)
+        json = templete.render(bind_variables)
 
         return json_parser.loads(json)
 
 
 @dataclasses.dataclass(frozen=True)
 class BindableImage(Image):
-    bind_valiable: str = None
+    bind_variable: str = None
 
 
-@dataclasses.dataclass(init=False, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class TaskDefinition:
     json_template: str
     images: List[BindableImage]
+    bind_variables: BindableVariableCollection \
+        = dataclasses.field(default_factory=list)
 
-    def __init__(self, json_template: str, images: List[dict]):
-        images = [BindableImage(**bind_valiable) for bind_valiable in images]
+    def __post_init__(self):
+        bind_variables = self.bind_variables
+        bind_variables = BindableVariableCollection(bind_variables, True)
+        object.__setattr__(self, 'bind_variables', bind_variables)
 
-        object.__setattr__(self, 'images', images)
-        object.__setattr__(self, 'json_template', json_template)
+        if isinstance(self.images, list):
+            images = [BindableImage(**x) for x in self.images]
+            object.__setattr__(self, 'images', images)
 
-    def render_json(self, bind_valiables: dict) -> dict:
-        default_bind_valiables = {}
+    def render_json(self, bind_variables: dict) -> dict:
+        default_bind_variables = {}
 
-        bind_valiables = dict(bind_valiables, **default_bind_valiables)
+        bind_variables = dict(bind_variables, **default_bind_variables)
+        bind_variables = dict(bind_variables, **self.bind_variables.asdict())
 
         environment = Environment(loader=FileSystemLoader('.'))
         templete = environment.get_template(self.json_template)
-        json = templete.render(bind_valiables)
+        json = templete.render(bind_variables)
 
         return json_parser.loads(json)
 
@@ -164,7 +234,7 @@ class Application:
                 'images': [
                     {
                         'name': 'link to images.name'
-                        'bind_valiable': 'string'
+                        'bind_variable': 'string'
                     }
                 ]
             }

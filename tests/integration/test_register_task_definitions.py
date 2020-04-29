@@ -43,17 +43,20 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             -   json_template: ./project_dir/task_definition.json
                 images:
                     -   name: app
-                        bind_valiable: APP_IMAGE_URI
+                        bind_variable: APP_IMAGE_URI
                     -   name: nginx
-                        bind_valiable: NGINX_IMAGE_URI
+                        bind_variable: NGINX_IMAGE_URI
+                bind_variables:
+                    -   name: ACCOUNT_ID
+                        value: 99999999
         services:
     """
 
     TEMPLATE_JSON = """
     {
         "family": "task",
-        "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
-        "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+        "taskRoleArn": "arn:aws:iam::{{ ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+        "executionRoleArn": "arn:aws:iam::{{ ACCOUNT_ID }}:role/ecsTaskExecutionRole",
         "networkMode": "awsvpc",
         "containerDefinitions": [
             {
@@ -445,6 +448,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
         with ExitStack() as stack:
             app_tag = mimesis.Cryptographic().token_hex()
             nginx_tag = mimesis.Cryptographic().token_hex()
+            json_commit_hash=mimesis.Cryptographic().token_hex()
             params = [
                 'deploy2ecs',
                 'register-task-definition',
@@ -507,7 +511,8 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
 
             hash_mapping = {
                 './app/app/': app_tag,
-                './nginx/': nginx_tag
+                './nginx/': nginx_tag,
+                './project_dir/task_definition.json': json_commit_hash
             }
 
             mock_subprocer = \
@@ -517,7 +522,23 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
 
             App().run()
 
-            mock_aws.register_task_definition.assert_called()
+            expect =  \
+                self.TEMPLATE_JSON \
+                    .replace('{', '{{') \
+                    .replace('}', '}}') \
+                    .replace('{{{{', '{') \
+                    .replace('}}}}', '}') \
+                    .replace('{ ', '{') \
+                    .replace(' }', '}') \
+                    .format(
+                        ACCOUNT_ID='99999999',
+                        NGINX_IMAGE_URI='ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/nginx:' + nginx_tag,
+                        APP_IMAGE_URI='ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/app:' + app_tag,
+                        JSON_COMMIT_HASH=json_commit_hash
+                    )
+            expect = json.loads(expect)
+
+            mock_aws.register_task_definition.assert_called_with(**expect)
 
     def test_when_unmatch_json_commit(self):
         from jinja2.utils import open_if_exists

@@ -1,8 +1,38 @@
 import mimesis
 
 
+def bind_const_variable():
+    return {
+        'name': mimesis.Person().username(),
+        'value': mimesis.Cryptographic().token_hex()
+    }
+
+
+def bind_variable_from_env():
+    return {
+        'name': mimesis.Person().username(),
+        'value_from': mimesis.Food().vegetable()
+    }
+
+
+def bind_variables():
+    return [
+        bind_const_variable(),
+        bind_const_variable(),
+        bind_const_variable(),
+        bind_const_variable(),
+        bind_const_variable(),
+        bind_variable_from_env(),
+        bind_variable_from_env(),
+        bind_variable_from_env(),
+        bind_variable_from_env(),
+        bind_variable_from_env()
+    ]
+
+
 def task():
     return {
+        'bind_variables': bind_variables(),
         'task_family': mimesis.Person().username(),
         'cluster': mimesis.Person().username(),
         'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name())
@@ -32,7 +62,7 @@ def image(context=None, excludes=[], exclude_repository_name: bool = False) -> d
 
 def bindable_image(excludes=[]) -> dict:
     result = image(excludes=excludes)
-    result['bind_valiable'] = mimesis.Person().username()
+    result['bind_variable'] = mimesis.Person().username()
     return result
 
 
@@ -43,7 +73,7 @@ def task_definition(images=None, exclude_repository_name: bool = False) -> dict:
 
     for bindable_image in images:
         bindable_image = bindable_image.copy()
-        bindable_image['bind_valiable'] = mimesis.Person().username()
+        bindable_image['bind_variable'] = mimesis.Person().username()
         if exclude_repository_name:
             bindable_image.pop('repository_name')
 
@@ -51,7 +81,8 @@ def task_definition(images=None, exclude_repository_name: bool = False) -> dict:
 
     return {
         'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name()),
-        'images': bindable_images
+        'images': bindable_images,
+        'bind_variables': bind_variables()
     }
 
 
@@ -67,7 +98,8 @@ def service(before_deploy=None):
         'task_family': mimesis.Person().username(),
         'cluster': mimesis.Person().username(),
         'json_template': '%s/%s' % (mimesis.Path().project_dir(), mimesis.File().file_name()),
-        'before_deploy': before_deploy
+        'before_deploy': before_deploy,
+        'bind_variables': bind_variables()
     }
 
     return result
