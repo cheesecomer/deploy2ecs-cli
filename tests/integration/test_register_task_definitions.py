@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch, mock_open
 import mimesis
 
 from deploy2ecscli.app import App
+from deploy2ecscli.yaml import setup_loader
 
 
 class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
@@ -477,18 +478,14 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
 
             App().run()
 
-            def ref(loader, node):
-                value = loader.construct_scalar(node)
-                mapping = {
-                    'ACCOUNT_ID': '99999999',
-                    'NGINX_IMAGE_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/nginx:' + nginx_tag,
-                    'APP_IMAGE_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/app:' + app_tag,
-                    'JSON_COMMIT_HASH': json_commit_hash
-                }
-                return mapping.get(value, '')
-            loader = yaml.SafeLoader
-            loader.add_constructor('!Ref', ref)
-            expect = yaml.load(self.TEMPLATE_YAML, Loader=loader)
+            mapping = {
+                'ACCOUNT_ID': '99999999',
+                'NGINX_IMAGE_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/nginx:' + nginx_tag,
+                'APP_IMAGE_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/app:' + app_tag,
+                'JSON_COMMIT_HASH': json_commit_hash
+            }
+
+            expect = yaml.load(self.TEMPLATE_YAML, Loader=setup_loader)
 
             mock_aws.register_task_definition.assert_called_with(**expect)
 

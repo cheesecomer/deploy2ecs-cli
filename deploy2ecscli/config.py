@@ -10,6 +10,7 @@ import re
 import dataclasses
 
 from typing import List, Optional, Tuple
+from deploy2ecscli.yaml import setup_loader
 
 
 @dataclasses.dataclass(frozen=True)
@@ -100,20 +101,8 @@ class Task:
             'CLUSTER_NAME': self.cluster,
         }
 
-        def ref(loader, node):
-            value = loader.construct_scalar(node)
-            return bind_variables.get(value, os.environ.get(value, ''))
-
-        def split(loader, node):
-            values = loader.construct_sequence(node)
-            return values[1].split(values[0])
-
-        loader = yaml.SafeLoader
-        loader.add_constructor('!Ref', ref)
-        loader.add_constructor('!Split', split)
-
         with open(self.template) as file:
-            return yaml.load(file, Loader=loader)
+            return yaml.load(file, Loader=setup_loader(bind_variables))
 
 
 @dataclasses.dataclass(init=False, frozen=True)
@@ -153,20 +142,8 @@ class Service:
         bind_variables = dict(bind_variables, **default_bind_variables)
         bind_variables = dict(bind_variables, **self.bind_variables.asdict())
 
-        def ref(loader, node):
-            value = loader.construct_scalar(node)
-            return bind_variables.get(value, os.environ.get(value, ''))
-
-        def split(loader, node):
-            values = loader.construct_sequence(node)
-            return values[1].split(values[0])
-
-        loader = yaml.SafeLoader
-        loader.add_constructor('!Ref', ref)
-        loader.add_constructor('!Split', split)
-
         with open(self.template) as file:
-            return yaml.load(file, Loader=loader)
+            return yaml.load(file, Loader=setup_loader(bind_variables))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -196,15 +173,8 @@ class TaskDefinition:
         bind_variables = dict(bind_variables, **default_bind_variables)
         bind_variables = dict(bind_variables, **self.bind_variables.asdict())
 
-        def ref(loader, node):
-            value = loader.construct_scalar(node)
-            return bind_variables.get(value, os.environ.get(value, ''))
-
-        loader = yaml.SafeLoader
-        loader.add_constructor('!Ref', ref)
-
         with open(self.template) as file:
-            return yaml.load(file, Loader=loader)
+            return yaml.load(file, Loader=setup_loader(bind_variables))
 
 
 @dataclasses.dataclass(init=False, frozen=True)

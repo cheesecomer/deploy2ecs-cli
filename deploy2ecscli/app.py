@@ -40,6 +40,7 @@ from deploy2ecscli.config import Application as ApplicationConfig
 from deploy2ecscli.log import Level as LogLevel
 from deploy2ecscli.aws.client import Client as AwsClient
 from deploy2ecscli.git import Git
+from deploy2ecscli.yaml import setup_loader
 
 
 class App():
@@ -80,13 +81,7 @@ class App():
         git_client = Git()
         current_branch = git_client.current_branch
 
-        def ref(loader, node):
-            value = loader.construct_scalar(node)
-            return os.environ.get(value, '')
-
-        loader = yaml.SafeLoader
-        loader.add_constructor('!Ref', ref)
-        configs = yaml.load(args.config, Loader=loader)
+        configs = yaml.load(args.config, Loader=setup_loader())
         config = next((v for x, v in configs.items()
                        if re.match(x, current_branch, re.IGNORECASE)), None)
 
