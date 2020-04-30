@@ -22,7 +22,7 @@ class TestRegisterService(unittest.TestCase):
             -   name: example_application
                 cluster: ecs-cluster
                 task_family: example_application
-                json_template: ./config/application.json
+                template: ./config/application.yaml
                 bind_variables:
                     -   name: ACCOUNT_ID
                         value: 99999999
@@ -30,76 +30,60 @@ class TestRegisterService(unittest.TestCase):
                     tasks:
                         -   task_family: migrate
                             cluster: ecs-cluster
-                            json_template: ./config/migrate.json
+                            template: ./config/migrate.yaml
     """
 
-    TEMPLATE_JSON_SERVICE = """{
-        "cluster": "{{ CLUSTER }}",
-        "serviceName": "{{ SERVICE_NAME }}",
-        "taskDefinition": "{{ TASK_DEFINITION_ARN }}",
-        "loadBalancers": [
-            {
-                "containerPort": 80,
-                "containerName": "nginx",
-                "targetGroupArn": "arn:aws:elasticloadbalancing:REGION:{{ ACCOUNT_ID }}:targetgroup/example-application/xxxxXXXXxxxxXXXX"
-            }
-        ],
-        "desiredCount": 2,
-        "launchType": "FARGATE",
-        "platformVersion": "LATEST",
-        "deploymentConfiguration": {
-            "minimumHealthyPercent": 100,
-            "maximumPercent": 200
-        },
-        "networkConfiguration": {
-            "awsvpcConfiguration": {
-                "securityGroups": [
-                    "sg-xxxxxxxx"
-                ],
-                "subnets": [
-                    "subnet-xxxxxxx1",
-                    "subnet-xxxxxxx2",
-                    "subnet-xxxxxxx3"
-                ],
-                "assignPublicIp": "ENABLED"
-            }
-        },
-        "healthCheckGracePeriodSeconds": 0,
-        "schedulingStrategy": "REPLICA",
-        "enableECSManagedTags": false,
-        "tags": [
-            {
-                "key": "JSON_COMMIT_HASH",
-                "value": "{{ JSON_COMMIT_HASH }}"
-            }
-        ]
-    }
+    TEMPLATE_SERVICE_YAML = """
+    cluster: !Ref CLUSTER_NAME
+    serviceName: !Ref SERVICE_NAME
+    taskDefinition: !Ref TASK_DEFINITION_ARN
+    loadBalancers:
+        - containerPort: 80
+          containerName: nginx
+          targetGroupArn: !Ref TARGET_GROUP_ARN
+    desiredCount: 2
+    launchType: FARGATE
+    platformVersion: LATEST
+    deploymentConfiguration:
+    minimumHealthyPercent: 100
+    maximumPercent: 200
+    networkConfiguration:
+    awsvpcConfiguration:
+        securityGroups: !Split
+            - ","
+            - !Ref SECURITY_GROUPS
+        subnets: !Split
+            - ","
+            - !Ref SUBNETS
+        assignPublicIp: ENABLED
+    healthCheckGracePeriodSeconds: 0
+    schedulingStrategy: REPLICA
+    enableECSManagedTags: false
+    tags:
+        - key: JSON_COMMIT_HASH
+          value: !Ref JSON_COMMIT_HASH
     """
 
-    TEMPLATE_JSON_ONETIME_TASK = """{
-        "cluster": "{{ CLUSTER }}",
-        "taskDefinition": "{{ TASK_DEFINITION_ARN }}",
-        "launchType": "FARGATE",
-        "platformVersion": "LATEST",
-        "networkConfiguration": {
-            "awsvpcConfiguration": {
-                "securityGroups": [
-                    "sg-xxxxxxxx"
-                ],
-                "subnets": [
-                    "subnet-xxxxxxx1",
-                    "subnet-xxxxxxx2",
-                    "subnet-xxxxxxx3"
-                ],
-                "assignPublicIp": "ENABLED"
-            }
-        }
-    }
+    TEMPLATE_ONETIME_TASK_YAML = """
+    cluster: !Ref CLUSTER_NAME
+    taskDefinition: !Ref TASK_DEFINITION_ARN
+    launchType: FARGATE
+    platformVersion: LATEST
+    networkConfiguration:
+    awsvpcConfiguration:
+        securityGroups: !Split
+            - ","
+            - !Ref SECURITY_GROUPS
+        subnets: !Split
+            - ","
+            - !Ref SUBNETS
+        assignPublicIp: ENABLED
+
     """
 
     TEMPLATE_MAPPING = {
-        './config/application.json': TEMPLATE_JSON_SERVICE,
-        './config/migrate.json': TEMPLATE_JSON_SERVICE
+        './config/application.yaml': TEMPLATE_SERVICE_YAML,
+        './config/migrate.yaml': TEMPLATE_ONETIME_TASK_YAML
     }
 
     RESPONSE_SERVICES_TEMPLATE = """{
@@ -347,20 +331,6 @@ class TestRegisterService(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open = mock_open.return_value
-            mock_open.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
-
-            stack.enter_context(mock.patch('jinja2.loaders.path.getmtime'))
-
-            mock_loader = \
-                stack.enter_context(mock.patch(
-                    'jinja2.loaders.open_if_exists'))
-            mock_loader.side_effect = lambda x: MagicMock(
-                **{'read.return_value': self.TEMPLATE_MAPPING[x].encode('utf8')})
-
             describe_services = \
                 self.RESPONSE_SERVICES_TEMPLATE \
                     .replace('{', '{{') \
@@ -398,6 +368,18 @@ class TestRegisterService(unittest.TestCase):
             mock_subprocer.side_effect = \
                 lambda x, **_: self.__subprocer_run(x)
 
+            stack.enter_context(mock.patch(
+                'deploy2ecscli.app.open', mock.mock_open(read_data=self.DEFAULT_YAML)))
+
+            config_open = MagicMock()
+            config_open.side_effect = \
+                lambda x: mock.mock_open(
+                    read_data=(self.TEMPLATE_MAPPING[x]))\
+                .return_value
+
+            stack.enter_context(mock.patch(
+                'deploy2ecscli.config.open', config_open))
+
             App().run()
 
             mock_aws.run_task.assert_called()
@@ -415,20 +397,6 @@ class TestRegisterService(unittest.TestCase):
             ]
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
-
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open = mock_open.return_value
-            mock_open.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
-
-            stack.enter_context(mock.patch('jinja2.loaders.path.getmtime'))
-
-            mock_loader = \
-                stack.enter_context(mock.patch(
-                    'jinja2.loaders.open_if_exists'))
-            mock_loader.side_effect = lambda x: MagicMock(
-                **{'read.return_value': self.TEMPLATE_MAPPING[x].encode('utf8')})
 
             describe_task_definition = \
                 self.RESPONSE_TASK_DEFINITION_TEMPLATE \
@@ -476,12 +444,22 @@ class TestRegisterService(unittest.TestCase):
                 'failures': []
             }
 
-            mock_aws.de
-
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = \
                 lambda x, **_: self.__subprocer_run(x)
+
+            stack.enter_context(mock.patch(
+                'deploy2ecscli.app.open', mock.mock_open(read_data=self.DEFAULT_YAML)))
+
+            config_open = MagicMock()
+            config_open.side_effect = \
+                lambda x: mock.mock_open(
+                    read_data=(self.TEMPLATE_MAPPING[x]))\
+                .return_value
+
+            stack.enter_context(mock.patch(
+                'deploy2ecscli.config.open', config_open))
 
             App().run()
 
@@ -500,20 +478,6 @@ class TestRegisterService(unittest.TestCase):
             ]
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
-
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open = mock_open.return_value
-            mock_open.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
-
-            stack.enter_context(mock.patch('jinja2.loaders.path.getmtime'))
-
-            mock_loader = \
-                stack.enter_context(mock.patch(
-                    'jinja2.loaders.open_if_exists'))
-            mock_loader.side_effect = lambda x: MagicMock(
-                **{'read.return_value': self.TEMPLATE_MAPPING[x].encode('utf8')})
 
             describe_task_definition = \
                 self.RESPONSE_TASK_DEFINITION_TEMPLATE \
@@ -572,12 +536,22 @@ class TestRegisterService(unittest.TestCase):
                 'failures': []
             }
 
-            mock_aws.de
-
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = \
                 lambda x, **_: self.__subprocer_run(x)
+
+            stack.enter_context(mock.patch(
+                'deploy2ecscli.app.open', mock.mock_open(read_data=self.DEFAULT_YAML)))
+
+            config_open = MagicMock()
+            config_open.side_effect = \
+                lambda x: mock.mock_open(
+                    read_data=(self.TEMPLATE_MAPPING[x]))\
+                .return_value
+
+            stack.enter_context(mock.patch(
+                'deploy2ecscli.config.open', config_open))
 
             App().run()
 
@@ -596,20 +570,6 @@ class TestRegisterService(unittest.TestCase):
             ]
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
-
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open = mock_open.return_value
-            mock_open.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
-
-            stack.enter_context(mock.patch('jinja2.loaders.path.getmtime'))
-
-            mock_loader = \
-                stack.enter_context(mock.patch(
-                    'jinja2.loaders.open_if_exists'))
-            mock_loader.side_effect = lambda x: MagicMock(
-                **{'read.return_value': self.TEMPLATE_MAPPING[x].encode('utf8')})
 
             describe_task_definition = \
                 self.RESPONSE_TASK_DEFINITION_TEMPLATE \
@@ -669,12 +629,22 @@ class TestRegisterService(unittest.TestCase):
                 'failures': []
             }
 
-            mock_aws.de
-
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = \
                 lambda x, **_: self.__subprocer_run(x)
+
+            stack.enter_context(mock.patch(
+                'deploy2ecscli.app.open', mock.mock_open(read_data=self.DEFAULT_YAML)))
+
+            config_open = MagicMock()
+            config_open.side_effect = \
+                lambda x: mock.mock_open(
+                    read_data=(self.TEMPLATE_MAPPING[x]))\
+                .return_value
+
+            stack.enter_context(mock.patch(
+                'deploy2ecscli.config.open', config_open))
 
             App().run()
 

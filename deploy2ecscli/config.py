@@ -4,14 +4,13 @@
 # vi: set ft=python :
 
 from abc import ABC, abstractmethod
+import yaml
 import os
 import re
 import dataclasses
-import json as json_parser
 
 from typing import List, Optional, Tuple
-
-from jinja2 import Template, Environment, FileSystemLoader
+from deploy2ecscli.yaml import setup_loader
 
 
 @dataclasses.dataclass(frozen=True)
@@ -59,49 +58,22 @@ class Image:
 
 
 @dataclasses.dataclass(frozen=True)
-class BindableVariable(ABC):
+class BindableVariable:
     name: str
-
-    @abstractmethod
-    def get_value(self) -> str:
-        raise NotImplementedError()
-
-    def to_tuple(self) -> Tuple[str, str]:
-        return (self.name, self.get_value())
-
-
-@dataclasses.dataclass(frozen=True)
-class BindableConstVariable(BindableVariable):
     value: str
 
     def get_value(self) -> str:
         return self.value
 
+    def to_tuple(self) -> Tuple[str, str]:
+        return (self.name, self.get_value())
 
-@dataclasses.dataclass(frozen=True)
-class BindableVariableFromEnv(BindableVariable):
-    value_from: str
-
-    def get_value(self) -> str:
-        return os.environ.get(self.value_from, '')
 
 class BindableVariableCollection(list):
     def __init__(self, variables: List[dict], parse: bool = False):
         if parse:
-            clz_mapping = {
-                'value': BindableConstVariable,
-                'value_from': BindableVariableFromEnv
-            }
-            clz_mapping = clz_mapping.items()
-
             for variable in variables:
-                clazz = \
-                    (v for k, v in clz_mapping if variable.get(k))
-                clazz = next(clazz, None)
-                if clazz is None:
-                    continue
-
-                self.append(clazz(**variable))
+                self.append(BindableVariable(**variable))
         else:
             for variable in variables:
                 self.append(variable)
@@ -109,11 +81,12 @@ class BindableVariableCollection(list):
     def asdict(self):
         return dict([x.to_tuple() for x in self])
 
+
 @dataclasses.dataclass(frozen=True)
 class Task:
     task_family: str
     cluster: str
-    json_template: str
+    template: str
     bind_variables: BindableVariableCollection \
         = dataclasses.field(default_factory=list)
 
@@ -125,16 +98,11 @@ class Task:
     def render_json(self) -> dict:
         bind_variables = {
             'TASK_FAMILY': self.task_family,
-            'CLUSTER': self.cluster,
+            'CLUSTER_NAME': self.cluster,
         }
 
-        bind_variables = dict(bind_variables, **self.bind_variables.asdict())
-
-        environment = Environment(loader=FileSystemLoader('.'))
-        templete = environment.get_template(self.json_template)
-        json = templete.render(bind_variables)
-
-        return json_parser.loads(json)
+        with open(self.template) as file:
+            return yaml.load(file, Loader=setup_loader(bind_variables))
 
 
 @dataclasses.dataclass(init=False, frozen=True)
@@ -151,7 +119,7 @@ class Service:
     name: str
     task_family: str
     cluster: str
-    json_template: str
+    template: str
     before_deploy: BeforeDeploy = None
     bind_variables: BindableVariableCollection \
         = dataclasses.field(default_factory=list)
@@ -168,17 +136,14 @@ class Service:
     def render_json(self, bind_variables={}) -> dict:
         default_bind_variables = {
             'TASK_FAMILY': self.task_family,
-            'CLUSTER': self.cluster,
+            'CLUSTER_NAME': self.cluster,
         }
 
-        bind_variables = dict(default_bind_variables, **bind_variables)
+        bind_variables = dict(bind_variables, **default_bind_variables)
         bind_variables = dict(bind_variables, **self.bind_variables.asdict())
 
-        environment = Environment(loader=FileSystemLoader('.'))
-        templete = environment.get_template(self.json_template)
-        json = templete.render(bind_variables)
-
-        return json_parser.loads(json)
+        with open(self.template) as file:
+            return yaml.load(file, Loader=setup_loader(bind_variables))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -188,7 +153,7 @@ class BindableImage(Image):
 
 @dataclasses.dataclass(frozen=True)
 class TaskDefinition:
-    json_template: str
+    template: str
     images: List[BindableImage]
     bind_variables: BindableVariableCollection \
         = dataclasses.field(default_factory=list)
@@ -202,67 +167,23 @@ class TaskDefinition:
             images = [BindableImage(**x) for x in self.images]
             object.__setattr__(self, 'images', images)
 
-    def render_json(self, bind_variables: dict) -> dict:
+    def render(self, bind_variables: dict) -> dict:
         default_bind_variables = {}
 
         bind_variables = dict(bind_variables, **default_bind_variables)
         bind_variables = dict(bind_variables, **self.bind_variables.asdict())
 
-        environment = Environment(loader=FileSystemLoader('.'))
-        templete = environment.get_template(self.json_template)
-        json = templete.render(bind_variables)
-
-        return json_parser.loads(json)
+        with open(self.template) as file:
+            return yaml.load(file, Loader=setup_loader(bind_variables))
 
 
 @dataclasses.dataclass(init=False, frozen=True)
 class Application:
-    """
-    {
-        'images': [
-            {
-                'name': 'string',
-                'repository_uri': 'string',
-                'context': 'string',
-                'docker_file': 'string',
-                'dependencies': []
-            }
-        ],
-        'task_definitions': [
-            {
-                'json_template': 'string',
-                'images': [
-                    {
-                        'name': 'link to images.name'
-                        'bind_variable': 'string'
-                    }
-                ]
-            }
-        ],
-        'services': [
-            {
-                'name': 'string',
-                'task_family': 'string',
-                'cluster': 'string',
-                'json_template': 'string',
-                'before_deploy': {
-                    'tasks': [
-                        {
-                            'task_family': 'string',
-                            'cluster': 'string',
-                            'json_template': 'string'
-                        }
-                    ]
-                }
-            }
-        ]
-    }
-    """
     images: List[Image]
     task_definitions: List[TaskDefinition]
     services: List[Service]
 
-    def __init__(self, images: List[dict], task_definitions: List[dict], services: List[dict]):
+    def __init__(self, images: List[dict] = None, task_definitions: List[dict] = None, services: List[dict] = None):
         images = images or []
         services = services or []
         task_definitions = task_definitions or []

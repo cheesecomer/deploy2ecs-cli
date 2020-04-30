@@ -293,9 +293,9 @@ class RegisterTaskDefinitionUseCase():
             self.__register_task_definition(task_definition)
 
     def __register_task_definition(self, config: TaskDefinitionConfig) -> None:
-        json_latest_commit = self.__git.latest_object(config.json_template)
+        template_latest_commit = self.__git.latest_object(config.template)
         bind_variables = {
-            'JSON_COMMIT_HASH': json_latest_commit or self.__git.latest_object()
+            'JSON_COMMIT_HASH': template_latest_commit or self.__git.latest_object()
         }
 
         for image in config.images:
@@ -307,8 +307,8 @@ class RegisterTaskDefinitionUseCase():
 
             bind_variables[image.bind_variable] = image_uri
 
-        json = config.render_json(bind_variables)
-        task_definition = EcsTaskDefinition(json)
+        task_definition_config = config.render(bind_variables)
+        task_definition = EcsTaskDefinition(task_definition_config)
 
         msg = """
         |  ==============================================================================
@@ -324,13 +324,13 @@ class RegisterTaskDefinitionUseCase():
         shoud_update = self.__force_update or \
             self.__diff_task_definition(
                 task_definition,
-                config.json_template)
+                config.template)
 
         if not shoud_update:
             return
 
         registered_task_definition = \
-            self.__aws.ecs.task_definition.register(json)
+            self.__aws.ecs.task_definition.register(task_definition_config)
 
         log.newline()
 
@@ -454,11 +454,11 @@ class RegisterServiceUseCase():
     def __register_service(self, config: ServiceConfig) -> None:
         latest_task_definition = \
             self.__aws.ecs.task_definition.describe(config.task_family)
-        json_latest_commit = self.__git.latest_object(config.json_template)
+        template_latest_commit = self.__git.latest_object(config.template)
 
         bind_variables = {
             'TASK_DEFINITION_ARN': latest_task_definition.arn,
-            'JSON_COMMIT_HASH': json_latest_commit or self.__git.latest_object()
+            'JSON_COMMIT_HASH': template_latest_commit or self.__git.latest_object()
         }
 
         json = config.render_json(bind_variables)
@@ -482,7 +482,7 @@ class RegisterServiceUseCase():
             self.__diff_service(
                 service,
                 active_service,
-                config.json_template)
+                config.template)
 
         if not should_register:
             return

@@ -1,12 +1,13 @@
 import sys
 import base64
 import tempfile
+import os
 from contextlib import ExitStack
 
 import unittest
 
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, mock_open
 
 import mimesis
 
@@ -18,7 +19,7 @@ class TestBuildImage(unittest.TestCase):
         integration:
             images:
                 -   name: image_1
-                    repository_uri: ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME
+                    repository_uri: !Ref APP_REPOSITORY_URI
                     context: ./project_dir
                     docker_file: ./project_dir/Dockerfile
                     dependencies:
@@ -32,8 +33,6 @@ class TestBuildImage(unittest.TestCase):
                     excludes:
                         -   config/deploy
                         -   config/deploy.yml
-            task_definitions: 
-            services:
         """
 
     def __build_mock_docker(self, stack: ExitStack):
@@ -161,8 +160,8 @@ class TestBuildImage(unittest.TestCase):
         def build_mock_boto3():
             latest_digest = mimesis.Cryptographic.token_hex()
             mock_attrs = {
-                'get_authorization_token.return_value': \
-                    self.__get_authorization_token(),
+                'get_authorization_token.return_value':
+                self.__get_authorization_token(),
 
                 'list_images.return_value': {
                     'imageIds': [
@@ -208,14 +207,19 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
+            stack.enter_context(
+                mock.patch('deploy2ecscli.app.open', mock_open(read_data=self.DEFAULT_YAML)))
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = subprocer_run
+
+            stack.enter_context(
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
 
             App().run()
 
@@ -239,8 +243,8 @@ class TestBuildImage(unittest.TestCase):
 
         def build_mock_boto3():
             mock_attrs = {
-                'get_authorization_token.return_value': \
-                    self.__get_authorization_token(),
+                'get_authorization_token.return_value':
+                self.__get_authorization_token(),
 
                 'list_images.return_value': {
                     'imageIds': []
@@ -265,14 +269,19 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
+            stack.enter_context(
+                mock.patch('deploy2ecscli.app.open', mock_open(read_data=self.DEFAULT_YAML)))
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = subprocer_run
+
+            stack.enter_context(
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
 
             App().run()
 
@@ -307,8 +316,8 @@ class TestBuildImage(unittest.TestCase):
         def build_mock_boto3():
             latest_digest = mimesis.Cryptographic.token_hex()
             mock_attrs = {
-                'get_authorization_token.return_value': \
-                    self.__get_authorization_token(),
+                'get_authorization_token.return_value':
+                self.__get_authorization_token(),
 
                 'list_images.return_value': {
                     'imageIds': [
@@ -346,14 +355,19 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
+            stack.enter_context(
+                mock.patch('deploy2ecscli.app.open', mock_open(read_data=self.DEFAULT_YAML)))
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = subprocer_run
+
+            stack.enter_context(
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
 
             App().run()
 
@@ -377,8 +391,8 @@ class TestBuildImage(unittest.TestCase):
         def build_mock_boto3():
             latest_digest = mimesis.Cryptographic.token_hex()
             mock_attrs = {
-                'get_authorization_token.return_value': \
-                    self.__get_authorization_token(),
+                'get_authorization_token.return_value':
+                self.__get_authorization_token(),
 
                 'list_images.return_value': {
                     'imageIds': [
@@ -412,14 +426,19 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
+            stack.enter_context(
+                mock.patch('deploy2ecscli.app.open', mock_open(read_data=self.DEFAULT_YAML)))
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = subprocer_run
+
+            stack.enter_context(
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
 
             App().run()
 
@@ -443,8 +462,8 @@ class TestBuildImage(unittest.TestCase):
         def build_mock_boto3():
             latest_digest = mimesis.Cryptographic.token_hex()
             mock_attrs = {
-                'get_authorization_token.return_value': \
-                    self.__get_authorization_token(),
+                'get_authorization_token.return_value':
+                self.__get_authorization_token(),
 
                 'list_images.return_value': {
                     'imageIds': [
@@ -479,15 +498,19 @@ class TestBuildImage(unittest.TestCase):
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
 
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open.return_value.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
+            stack.enter_context(
+                mock.patch('deploy2ecscli.app.open', mock_open(read_data=self.DEFAULT_YAML)))
 
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = subprocer_run
 
+            stack.enter_context(
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
             App().run()
 
             mock_docker.images.build.assert_not_called()

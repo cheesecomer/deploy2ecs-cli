@@ -1,6 +1,5 @@
 termcolor
 pygments
 boto3
-jinja2
 docker
 pyyaml

@@ -2,16 +2,18 @@ import sys
 import base64
 import tempfile
 import json
+import yaml
 from contextlib import ExitStack
 
 import unittest
 
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch, mock_open
 
 import mimesis
 
 from deploy2ecscli.app import App
+from deploy2ecscli.yaml import setup_loader
 
 
 class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
@@ -40,7 +42,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                 dependencies:
                     -   ./nginx/
         task_definitions:
-            -   json_template: ./project_dir/task_definition.json
+            -   template: ./project_dir/task_definition.yaml
                 images:
                     -   name: app
                         bind_variable: APP_IMAGE_URI
@@ -52,115 +54,79 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
         services:
     """
 
-    TEMPLATE_JSON = """
-    {
-        "family": "task",
-        "taskRoleArn": "arn:aws:iam::{{ ACCOUNT_ID }}:role/ecsTaskExecutionRole",
-        "executionRoleArn": "arn:aws:iam::{{ ACCOUNT_ID }}:role/ecsTaskExecutionRole",
-        "networkMode": "awsvpc",
-        "containerDefinitions": [
-            {
-            "name": "nginx",
-            "image": "{{ NGINX_IMAGE_URI }}",
-            "cpu": 0,
-            "dependsOn": [
-                {
-                    "containerName": "app",
-                    "condition": "HEALTHY"
-                }
-            ],
-            "volumesFrom": [
-                {
-                    "sourceContainer": "app",
-                    "readOnly": true
-                }
-            ],
-            "logConfiguration": {
-                "logDriver": "awslogs",
-                "options": {
-                    "awslogs-group": "/ecs/task",
-                    "awslogs-region": "REGION",
-                    "awslogs-stream-prefix": "ecs"
-                }
-            },
-            "portMappings": [
-                {
-                    "protocol": "tcp",
-                    "containerPort": 80
-                }
-            ],
-            "healthCheck": {
-                "retries": 5,
-                "command": [
-                "CMD-SHELL",
-                    "wget -q -O /dev/null http://localhost/healthcheck || exit 1"
-                ],
-                "timeout": 5,
-                "interval": 5,
-                "startPeriod": 10
-            }
-            },
-            {
-                "name": "app",
-                "image": "{{ APP_IMAGE_URI }}",
-                "cpu": 0,
-                "memoryReservation": 500,
-                "healthCheck": {
-                    "retries": 5,
-                    "command": [
-                        "CMD-SHELL",
-                        "ls /var/run/app/puma.sock || exit 1"
-                    ],
-                    "timeout": 5,
-                    "interval": 5,
-                    "startPeriod": 10
-                },
-                "environment": [
-                    {
-                        "name": "RAILS_ENV",
-                        "value": "production"
-                    },
-                    {
-                        "name": "TZ",
-                        "value": "Asia/Tokyo"
-                    },
-                    {
-                        "name": "RAILS_LOG_TO_STDOUT",
-                        "value": "true"
-                    }
-                ],
-                "secrets": [
-                    {
-                        "name": "SECRET_KEY_BASE",
-                        "valueFrom": "app.secret_key_base"
-                    },
-                    {
-                        "name": "DATABASE_URL",
-                        "valueFrom": "app.database_url"
-                    }
-                ],
-                "logConfiguration": {
-                    "logDriver": "awslogs",
-                    "options": {
-                    "awslogs-group": "/ecs/task",
-                    "awslogs-region": "REGION",
-                    "awslogs-stream-prefix": "ecs"
-                    }
-                }
-            }
-        ],
-        "requiresCompatibilities": [
-            "FARGATE"
-        ],
-        "cpu": "512",
-        "memory": "1024",
-        "tags": [
-            {
-                "key": "JSON_COMMIT_HASH",
-                "value": "{{ JSON_COMMIT_HASH }}"
-            }
-        ]
-    }
+    TEMPLATE_YAML = """
+    family: task
+    taskRoleArn: !Ref TASK_ROLE_ARN
+    executionRoleArn: !Ref EXECUTION_ROLE_ARN
+    networkMode: awsvpc
+    containerDefinitions:
+      - name: nginx
+        image: !Ref NGINX_IMAGE_URI
+        cpu: 0
+        environment:
+          - name: NGINX_SERVER_NAME
+            value: task
+        dependsOn:
+          - containerName: app
+            condition: HEALTHY
+        volumesFrom:
+          - sourceContainer: app
+            readOnly: true
+        logConfiguration:
+          logDriver: awslogs
+          options:
+            awslogs-group: /ecs/task
+            awslogs-region: !Ref REGION
+            awslogs-stream-prefix: ecs
+        portMappings:
+          - protocol: tcp
+            containerPort: 80
+        healthCheck:
+          retries: 5
+          command:
+            - CMD-SHELL
+            - wget -q -O /dev/null http://localhost/healthcheck || exit 1
+          timeout: 5
+          interval: 5
+          startPeriod: 10
+      - name: app
+        image: !Ref APP_IMAGE_URI
+        cpu: 0
+        memoryReservation: 500
+        healthCheck:
+          retries: 5
+          command:
+            - CMD-SHELL
+            - ls /var/run/app/puma.sock || exit 1
+          timeout: 5
+          interval: 5
+          startPeriod: 10
+
+        environment:
+          - name: RAILS_ENV
+            value: production
+          - name: TZ
+            value: Asia/Tokyo
+          - name: RAILS_LOG_TO_STDOUT
+            value: true
+        secrets:
+          - name: SECRET_KEY_BASE
+            valueFrom: !Ref SSM_SECRET_KEY_BASE
+          - name: DATABASE_URL
+            valueFrom: !Ref SSM_DATABASE_URL
+        logConfiguration:
+          logDriver: awslogs
+          options:
+            awslogs-group: /ecs/rails_on_docker
+            awslogs-region: !Ref REGION
+            awslogs-stream-prefix: ecs
+    requiresCompatibilities:
+      - FARGATE
+    cpu: 512
+    memory: 1024
+    tags:
+      - key: JSON_COMMIT_HASH
+        value: !Ref JSON_COMMIT_HASH
     """
 
     RESPONSE_REQUEST_JSON = """
@@ -388,16 +354,16 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             +++ b/deploy2ecscli/git/git.py
             @@ -8,6 +8,7 @@ import subprocess
             from typing import List, Union, Optional
-            
+
             from deploy2ecscli import logger
             +from deploy2ecscli.log import Level as LogLevel
             from deploy2ecscli.git.exceptions import NotGitRepositoryException
-            
-            
+
+
             @@ -87,6 +88,15 @@ class Git:
                     result = self.__run(command.format(a, b, files, excludes))
                     return result.splitlines()
-            
+
             +    def print_diff(self, a, b, files=None, excludes=None) -> None:
             +        files = self.__to_git_files(files)
             +        excludes = self.__to_git_exclude(excludes)
@@ -411,22 +377,23 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                 def __to_git_files(cls, files: Union[str, list, None] = None) -> str:
                     files = files or []
             @@ -114,7 +124,7 @@ class Git:
-            
+
                 @classmethod
                 def __run(cls, command: str):
-            -        
+            -
             +
                     logger.verbose('`%s`' % command)
-            
+
                     proc = subprocess.run(command, **cls.__RUN_OPTION)
             diff --git a/deploy2ecscli/usecases.py b/deploy2ecscli/usecases.py
             index dbb0e2b..7d42d11 100644
             --- a/deploy2ecscli/usecases.py
             +++ b/deploy2ecscli/usecases.py
             @@ -201,7 +201,7 @@ class BuildImageUseCase():
-                        log.warn(msg.format(config.repository_name, latest_image_commit))
+                        log.warn(msg.format(
+                            config.repository_name, latest_image_commit))
                         return None
-            
+
             -        modified_files = self.__git.modified_files(
             +        modified_files = self.__git.diff_files(
                         latest_image_commit, current_commit, config.dependencies, config.excludes)
@@ -444,11 +411,10 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
         return MagicMock(returncode=127, stderr=b'command not found')
 
     def test_when_unmatch_image_uri(self):
-        from jinja2.utils import open_if_exists
         with ExitStack() as stack:
             app_tag = mimesis.Cryptographic().token_hex()
             nginx_tag = mimesis.Cryptographic().token_hex()
-            json_commit_hash=mimesis.Cryptographic().token_hex()
+            json_commit_hash = mimesis.Cryptographic().token_hex()
             params = [
                 'deploy2ecs',
                 'register-task-definition',
@@ -457,21 +423,6 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             ]
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
-
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open = mock_open.return_value
-            mock_open.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
-
-            stack.enter_context(mock.patch('jinja2.loaders.path.getmtime'))
-
-            mock_loader = \
-                stack.enter_context(mock.patch(
-                    'jinja2.loaders.open_if_exists'))
-            mock_loader = mock_loader.return_value
-            mock_loader.read.return_value = \
-                self.TEMPLATE_JSON.encode('utf8')
 
             describe_task_definition =  \
                 self.RESPONSE_REQUEST_JSON \
@@ -512,7 +463,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             hash_mapping = {
                 './app/app/': app_tag,
                 './nginx/': nginx_tag,
-                './project_dir/task_definition.json': json_commit_hash
+                './project_dir/task_definition.yaml': json_commit_hash
             }
 
             mock_subprocer = \
@@ -520,31 +471,62 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             mock_subprocer.side_effect = \
                 lambda x, **_: self.__default_subprocer_run(x, hash_mapping)
 
+            stack.enter_context(
+                mock.patch('deploy2ecscli.app.open', mock_open(read_data=self.DEFAULT_YAML)))
+            stack.enter_context(
+                mock.patch('deploy2ecscli.config.open', mock_open(read_data=self.TEMPLATE_YAML)))
+
             App().run()
 
-            expect =  \
-                self.TEMPLATE_JSON \
-                    .replace('{', '{{') \
-                    .replace('}', '}}') \
-                    .replace('{{{{', '{') \
-                    .replace('}}}}', '}') \
-                    .replace('{ ', '{') \
-                    .replace(' }', '}') \
-                    .format(
-                        ACCOUNT_ID='99999999',
-                        NGINX_IMAGE_URI='ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/nginx:' + nginx_tag,
-                        APP_IMAGE_URI='ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/app:' + app_tag,
-                        JSON_COMMIT_HASH=json_commit_hash
-                    )
-            expect = json.loads(expect)
+            mapping = {
+                'ACCOUNT_ID': '99999999',
+                'NGINX_IMAGE_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/nginx:' + nginx_tag,
+                'APP_IMAGE_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME/app:' + app_tag,
+                'JSON_COMMIT_HASH': json_commit_hash
+            }
+
+            expect = yaml.load(
+                self.TEMPLATE_YAML,
+                Loader=setup_loader(mapping))
 
             mock_aws.register_task_definition.assert_called_with(**expect)
 
     def test_when_unmatch_json_commit(self):
-        from jinja2.utils import open_if_exists
+        app_tag = mimesis.Cryptographic().token_hex()
+        nginx_tag = mimesis.Cryptographic().token_hex()
+        hash_mapping = {
+            './app/app/': app_tag,
+            './nginx/': nginx_tag
+        }
+        describe_task_definition =  \
+            self.RESPONSE_REQUEST_JSON \
+                .replace('{', '{{') \
+                .replace('}', '}}') \
+                .replace('{{{{', '{') \
+                .replace('}}}}', '}') \
+                .format(
+                    revision=100,
+                    nginx_tag=nginx_tag,
+                    app_tag=app_tag,
+                    json_commit_hash=mimesis.Cryptographic().token_hex()
+                )
+        describe_task_definition = json.loads(describe_task_definition)
+
+        register_task_definition =  \
+            self.RESPONSE_REQUEST_JSON \
+                .replace('{', '{{') \
+                .replace('}', '}}') \
+                .replace('{{{{', '{') \
+                .replace('}}}}', '}') \
+                .format(
+                    revision=101,
+                    nginx_tag=nginx_tag,
+                    app_tag=app_tag,
+                    json_commit_hash=mimesis.Cryptographic().token_hex()
+                )
+        register_task_definition = json.loads(register_task_definition)
+
         with ExitStack() as stack:
-            app_tag = mimesis.Cryptographic().token_hex()
-            nginx_tag = mimesis.Cryptographic().token_hex()
             params = [
                 'deploy2ecs',
                 'register-task-definition',
@@ -553,49 +535,6 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             ]
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
-
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open = mock_open.return_value
-            mock_open.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
-
-            stack.enter_context(mock.patch('jinja2.loaders.path.getmtime'))
-
-            mock_loader = \
-                stack.enter_context(mock.patch(
-                    'jinja2.loaders.open_if_exists'))
-            mock_loader = mock_loader.return_value
-            mock_loader.read.return_value = \
-                self.TEMPLATE_JSON.encode('utf8')
-
-            describe_task_definition =  \
-                self.RESPONSE_REQUEST_JSON \
-                    .replace('{', '{{') \
-                    .replace('}', '}}') \
-                    .replace('{{{{', '{') \
-                    .replace('}}}}', '}') \
-                    .format(
-                        revision=100,
-                        nginx_tag=nginx_tag,
-                        app_tag=app_tag,
-                        json_commit_hash=mimesis.Cryptographic().token_hex()
-                    )
-            describe_task_definition = json.loads(describe_task_definition)
-
-            register_task_definition =  \
-                self.RESPONSE_REQUEST_JSON \
-                    .replace('{', '{{') \
-                    .replace('}', '}}') \
-                    .replace('{{{{', '{') \
-                    .replace('}}}}', '}') \
-                    .format(
-                        revision=101,
-                        nginx_tag=nginx_tag,
-                        app_tag=app_tag,
-                        json_commit_hash=mimesis.Cryptographic().token_hex()
-                    )
-            register_task_definition = json.loads(register_task_definition)
 
             mock_aws = stack.enter_context(mock.patch('boto3.client'))
             mock_aws = mock_aws.return_value
@@ -605,22 +544,21 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             mock_aws.register_task_definition.return_value = \
                 register_task_definition
 
-            hash_mapping = {
-                './app/app/': app_tag,
-                './nginx/': nginx_tag
-            }
-
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = \
                 lambda x, **_: self.__default_subprocer_run(x, hash_mapping)
+
+            stack.enter_context(
+                mock.patch('deploy2ecscli.app.open', mock_open(read_data=self.DEFAULT_YAML)))
+            stack.enter_context(
+                mock.patch('deploy2ecscli.config.open', mock_open(read_data=self.TEMPLATE_YAML)))
 
             App().run()
 
             mock_aws.register_task_definition.assert_called()
 
     def test_when_json_commit_empty(self):
-        from jinja2.utils import open_if_exists
         with ExitStack() as stack:
             app_tag = mimesis.Cryptographic().token_hex()
             nginx_tag = mimesis.Cryptographic().token_hex()
@@ -632,21 +570,6 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             ]
 
             stack.enter_context(mock.patch.object(sys, 'argv', params))
-
-            mock_open = \
-                stack.enter_context(mock.patch('deploy2ecscli.app.open'))
-            mock_open = mock_open.return_value
-            mock_open.read.side_effect = \
-                iter([self.DEFAULT_YAML, ''])
-
-            stack.enter_context(mock.patch('jinja2.loaders.path.getmtime'))
-
-            mock_loader = \
-                stack.enter_context(mock.patch(
-                    'jinja2.loaders.open_if_exists'))
-            mock_loader = mock_loader.return_value
-            mock_loader.read.return_value = \
-                self.TEMPLATE_JSON.encode('utf8')
 
             describe_task_definition =  \
                 self.RESPONSE_REQUEST_JSON \
@@ -691,6 +614,11 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = \
                 lambda x, **_: self.__default_subprocer_run(x, hash_mapping)
+
+            stack.enter_context(
+                mock.patch('deploy2ecscli.app.open', mock_open(read_data=self.DEFAULT_YAML)))
+            stack.enter_context(
+                mock.patch('deploy2ecscli.config.open', mock_open(read_data=self.TEMPLATE_YAML)))
 
             App().run()
 
