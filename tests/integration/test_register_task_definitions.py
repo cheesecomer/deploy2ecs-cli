@@ -485,7 +485,9 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                 'JSON_COMMIT_HASH': json_commit_hash
             }
 
-            expect = yaml.load(self.TEMPLATE_YAML, Loader=setup_loader)
+            expect = yaml.load(
+                self.TEMPLATE_YAML,
+                Loader=setup_loader(mapping))
 
             mock_aws.register_task_definition.assert_called_with(**expect)
 

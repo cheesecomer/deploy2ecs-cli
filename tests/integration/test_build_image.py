@@ -215,7 +215,11 @@ class TestBuildImage(unittest.TestCase):
             mock_subprocer.side_effect = subprocer_run
 
             stack.enter_context(
-                mock.patch.dict(os.environ, {'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'}))
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
 
             App().run()
 
@@ -273,7 +277,11 @@ class TestBuildImage(unittest.TestCase):
             mock_subprocer.side_effect = subprocer_run
 
             stack.enter_context(
-                mock.patch.dict(os.environ, {'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'}))
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
 
             App().run()
 
@@ -354,6 +362,13 @@ class TestBuildImage(unittest.TestCase):
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = subprocer_run
 
+            stack.enter_context(
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
+
             App().run()
 
             mock_docker.images.build.assert_not_called()
@@ -417,6 +432,13 @@ class TestBuildImage(unittest.TestCase):
             mock_subprocer = \
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = subprocer_run
+
+            stack.enter_context(
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
 
             App().run()
 
@@ -483,6 +505,12 @@ class TestBuildImage(unittest.TestCase):
                 stack.enter_context(mock.patch('subprocess.run'))
             mock_subprocer.side_effect = subprocer_run
 
+            stack.enter_context(
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        'APP_REPOSITORY_URI': 'ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME'
+                    }))
             App().run()
 
             mock_docker.images.build.assert_not_called()
