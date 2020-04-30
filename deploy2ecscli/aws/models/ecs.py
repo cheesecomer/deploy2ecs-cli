@@ -60,12 +60,14 @@ class Task():
         object.__setattr__(self, 'last_status', json['lastStatus'])
         object.__setattr__(self, 'containers', containers)
 
+
 @dataclasses.dataclass(init=False, frozen=True)
 class ContainerDefinition:
     image: str
 
     def __init__(self, json: dict):
         object.__setattr__(self, 'image', json['image'])
+
 
 @dataclasses.dataclass(init=False, frozen=True)
 class TaskDefinition():
@@ -85,7 +87,10 @@ class TaskDefinition():
             [ContainerDefinition(x) for x in container_definitions]
 
         object.__setattr__(self, 'family', task_definition['family'])
-        object.__setattr__(self, 'arn', task_definition.get('taskDefinitionArn'))
+        object.__setattr__(
+            self,
+            'arn',
+            task_definition.get('taskDefinitionArn'))
         object.__setattr__(self, 'revision', revision)
         object.__setattr__(
             self,

@@ -4,13 +4,11 @@ import json as json_parser
 import unittest
 
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, mock_open, patch
 
 import mimesis
 
 from deploy2ecscli.config import BindableVariable
-from deploy2ecscli.config import BindableConstVariable
-from deploy2ecscli.config import BindableVariableFromEnv
 from deploy2ecscli.config import BindableVariableCollection
 from deploy2ecscli.config import Image
 from deploy2ecscli.config import BindableImage
@@ -44,7 +42,8 @@ def task_definitions_parameterize(task_definitions):
 
             bindable_image = {
                 'bind_variable': bind_variable,
-                'name': name}
+                'name': name
+            }
 
             images.append(bindable_image)
         task_definition['images'] = images
@@ -53,52 +52,18 @@ def task_definitions_parameterize(task_definitions):
 
     return result
 
+
 class TestBindableVariableCollection(unittest.TestCase):
     def test_init(self):
-        expect = [
-            {
-                'name': mimesis.Person().username(),
-                'value': mimesis.Cryptographic().token_hex()
-            },
-            {
-                'name': mimesis.Person().username(),
-                'value': mimesis.Cryptographic().token_hex()
-            },
-            {
-                'name': mimesis.Person().username(),
-                'value': mimesis.Cryptographic().token_hex()
-            },
-            {
-                'name': mimesis.Person().username(),
-                'value': mimesis.Cryptographic().token_hex()
-            },
-            {
-                'name': mimesis.Person().username(),
-                'value': mimesis.Cryptographic().token_hex()
-            },
-            {
-                'name': mimesis.Person().username(),
-                'value_from': mimesis.Food().vegetable()
-            },
-            {
-                'name': mimesis.Person().username(),
-                'value_from': mimesis.Food().vegetable()
-            },
-            {
-                'name': mimesis.Person().username(),
-                'value_from': mimesis.Food().vegetable()
-            }
-        ]
+        expect = fixtures.bind_variables()
 
-        params = expect.copy()
-        params.append({'name': mimesis.Person().username()})
-
-        actual = BindableVariableCollection(params, True)
+        actual = BindableVariableCollection(expect.copy(), True)
         actual = [dataclasses.asdict(x) for x in actual]
 
         self.assertListEqual(expect, actual)
 
-class TestBindableConstVariable(unittest.TestCase):
+
+class TestBindableVariable(unittest.TestCase):
     def test_init(self):
         # self.maxDiff = None
         expect = {
@@ -106,7 +71,7 @@ class TestBindableConstVariable(unittest.TestCase):
             'value': mimesis.Cryptographic().token_hex()
         }
 
-        actual = BindableConstVariable(**expect)
+        actual = BindableVariable(**expect)
         actual = dataclasses.asdict(actual)
 
         self.assertEqual(expect, actual)
@@ -117,34 +82,8 @@ class TestBindableConstVariable(unittest.TestCase):
 
         expect = (name, value)
 
-        actual = BindableConstVariable(name=name, value=value)
+        actual = BindableVariable(name=name, value=value)
         actual = actual.to_tuple()
-
-        self.assertEqual(expect, actual)
-
-
-class TestBindableVariableFromEnv(unittest.TestCase):
-    def test_init(self):
-        # self.maxDiff = None
-        expect = {
-            'name': mimesis.Person().username(),
-            'value_from': mimesis.Food().vegetable()
-        }
-
-        actual = BindableVariableFromEnv(**expect)
-        actual = dataclasses.asdict(actual)
-
-        self.assertEqual(expect, actual)
-
-    def test_to_tuple(self):
-        name = mimesis.Person().username()
-        value_from = mimesis.Food().vegetable()
-        value = mimesis.Cryptographic().token_hex()
-        expect = (name, value)
-        with mock.patch.dict(os.environ, {value_from: value}):
-            actual = \
-                BindableVariableFromEnv(name=name, value_from=value_from)
-            actual = actual.to_tuple()
 
         self.assertEqual(expect, actual)
 
@@ -239,30 +178,22 @@ class TestTask(unittest.TestCase):
         actual = Task(**params)
         self.assertEqual(expect, dataclasses.asdict(actual))
 
-    @mock.patch('deploy2ecscli.config.Environment')
-    def test_render_json(self, mock_env):
-        expect = {
-            mimesis.Person().username(): mimesis.Cryptographic().token_hex()
-        }
-
-        mock_templete = MagicMock()
-        mock_templete.render.return_value = json_parser.dumps(expect)
-
-        instance = mock_env.return_value
-        instance.get_template.return_value = mock_templete
-
+    def test_render_json(self):
         subject = Task(**fixtures.task())
-        actual = subject.render_json()
-
-        self.assertEqual(expect, actual)
-        instance.get_template.assert_called_with(subject.json_template)
-
-        bind_variables = {
+        expect = {
             'TASK_FAMILY': subject.task_family,
             'CLUSTER': subject.cluster,
         }
-        expect_bind_variables = dict(bind_variables, **subject.bind_variables.asdict())
-        mock_templete.render.assert_called_with(expect_bind_variables)
+
+        tmplate = """
+        TASK_FAMILY: !Ref TASK_FAMILY
+        CLUSTER: !Ref CLUSTER_NAME
+        """
+
+        with patch('deploy2ecscli.config.open', mock_open(read_data=tmplate)):
+            actual = subject.render_json()
+
+        self.assertEqual(expect, actual)
 
 
 class TestBeforeDeploy(unittest.TestCase):
@@ -300,37 +231,29 @@ class TestService(unittest.TestCase):
         actual = Service(**params)
         self.assertEqual(expect, dataclasses.asdict(actual))
 
-    @mock.patch('deploy2ecscli.config.Environment')
-    def test_render_json(self, mock_env):
-        expect = {
-            mimesis.Person().username(): mimesis.Cryptographic().token_hex()
-        }
-
-        bind_variables = {
-            mimesis.Person().username(): mimesis.Cryptographic().token_hex()
-        }
-
-        mock_templete = MagicMock()
-        mock_templete.render.return_value = json_parser.dumps(expect)
-
-        instance = mock_env.return_value
-        instance.get_template.return_value = mock_templete
-
+    def test_render_json(self):
         subject = Service(**fixtures.service())
-        actual = subject.render_json(bind_variables)
-
-        self.assertEqual(expect, actual)
-        instance.get_template.assert_called_with(subject.json_template)
-
-        expect_bind_variables = {}
-        default_bind_variables = {
+        expect = {
+            mimesis.Person().username(): mimesis.Cryptographic().token_hex(),
             'TASK_FAMILY': subject.task_family,
             'CLUSTER': subject.cluster,
         }
-        expect_bind_variables = dict(expect_bind_variables, **bind_variables)
-        expect_bind_variables = dict(expect_bind_variables, **default_bind_variables)
-        expect_bind_variables = dict(expect_bind_variables, **subject.bind_variables.asdict())
-        mock_templete.render.assert_called_with(expect_bind_variables)
+
+        bind_variables = {
+            'BIND_VALUE': expect[next(iter(expect))]
+        }
+
+        tmplate = """
+        {0}: !Ref BIND_VALUE
+        TASK_FAMILY: !Ref TASK_FAMILY
+        CLUSTER: !Ref CLUSTER_NAME
+        """
+        tmplate = tmplate.format(next(iter(expect)))
+
+        with patch('deploy2ecscli.config.open', mock_open(read_data=tmplate)):
+            actual = subject.render_json(bind_variables)
+
+        self.assertEqual(expect, actual)
 
 
 class TestTaskDefinition(unittest.TestCase):
@@ -351,31 +274,27 @@ class TestTaskDefinition(unittest.TestCase):
         actual = TaskDefinition(**params)
         self.assertDictEqual(expect, dataclasses.asdict(actual))
 
-    @mock.patch('deploy2ecscli.config.Environment')
-    def test_render_json(self, mock_env):
+    def test_render_json(self):
         expect = {
             mimesis.Person().username(): mimesis.Cryptographic().token_hex()
         }
 
         bind_variables = {
-            mimesis.Person().username(): mimesis.Cryptographic().token_hex()
+            'BIND_VALUE': expect[next(iter(expect))]
         }
-
-        mock_templete = MagicMock()
-        mock_templete.render.return_value = json_parser.dumps(expect)
-
-        instance = mock_env.return_value
-        instance.get_template.return_value = mock_templete
 
         subject = TaskDefinition(
             **fixtures.task_definition(exclude_repository_name=True))
-        actual = subject.render_json(bind_variables)
+
+        tmplate = """
+        {0}: !Ref BIND_VALUE
+        """
+        tmplate = tmplate.format(next(iter(expect)))
+
+        with patch('deploy2ecscli.config.open', mock_open(read_data=tmplate)):
+            actual = subject.render(bind_variables)
 
         self.assertEqual(expect, actual)
-        instance.get_template.assert_called_with(subject.json_template)
-
-        expect_bind_variables = dict(bind_variables, **subject.bind_variables.asdict())
-        mock_templete.render.assert_called_with(expect_bind_variables)
 
 
 class TestApplication(unittest.TestCase):

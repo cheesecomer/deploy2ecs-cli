@@ -264,7 +264,8 @@ class TestBuildImageUseCase(unittest.TestCase):
         # Should build
         mock_docker.images.build.assert_called_with(
             path=image_config.context,
-            dockerfile=image_config.docker_file.replace(image_config.context, './'),
+            dockerfile=image_config.docker_file.replace(
+                image_config.context, './'),
             tag=image_config.tagged_uri('latest'),
             nocache=False)
 
@@ -675,7 +676,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
         task_definition_confg = MagicMock()
         task_definition_confg.task_family = \
             mimesis.Person().username()
-        task_definition_confg.render_json.return_value = render_json
+        task_definition_confg.render.return_value = render_json
         task_definition_confg.images = [
             MagicMock(dependencies=[], excludes=[],
                       bind_variable=mimesis.Person().username())
