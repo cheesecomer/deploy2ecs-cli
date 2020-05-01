@@ -209,7 +209,8 @@ class TestBuildImageUseCase(unittest.TestCase):
             dockerfile=image_config.docker_file.replace(
                 image_config.context, './'),
             tag=image_config.tagged_uri('latest'),
-            nocache=False)
+            nocache=False,
+            buildargs=None)
 
         ######################################################################
         # Should tagging
@@ -267,7 +268,8 @@ class TestBuildImageUseCase(unittest.TestCase):
             dockerfile=image_config.docker_file.replace(
                 image_config.context, './'),
             tag=image_config.tagged_uri('latest'),
-            nocache=False)
+            nocache=False,
+            buildargs=None)
 
         ##############################################################
         # Should tagging
@@ -325,7 +327,8 @@ class TestBuildImageUseCase(unittest.TestCase):
             dockerfile=image_config.docker_file.replace(
                 image_config.context, './'),
             tag=image_config.tagged_uri('latest'),
-            nocache=False)
+            nocache=False,
+            buildargs=None)
 
         ######################################################################
         # Should tagging
@@ -386,7 +389,8 @@ class TestBuildImageUseCase(unittest.TestCase):
             dockerfile=image_config.docker_file.replace(
                 image_config.context, './'),
             tag=image_config.tagged_uri('latest'),
-            nocache=False)
+            nocache=False,
+            buildargs=None)
 
         ######################################################################
         # Should tagging
@@ -442,7 +446,70 @@ class TestBuildImageUseCase(unittest.TestCase):
             dockerfile=image_config.docker_file.replace(
                 image_config.context, './'),
             tag=image_config.repository_uri + ':latest',
-            nocache=True)
+            nocache=True,
+            buildargs=None)
+
+        ######################################################################
+        # Should tagging
+        docker_image.tag.assert_called_with(
+            image_config.tagged_uri(latest_object))
+
+        expect_call_push = [
+            mock.call(image_config.tagged_uri(
+                'latest'), auth_config=auth_config),
+            mock.call(image_config.tagged_uri(
+                latest_object), auth_config=auth_config)
+        ]
+
+        ######################################################################
+        # Should push latest tag and commit hash tag
+        self.assertEqual(2, mock_docker.images.push.call_count)
+        mock_docker.images.push.assert_has_calls(expect_call_push)
+
+    def test_execute_when_use_buildargs(self):
+        with ExitStack() as stack:
+            buildargs = {
+                'TOKEN': mimesis.Cryptographic().token_hex()
+            }
+            latest_object = mimesis.Cryptographic().token_hex()
+            image_config = config_fixtures.image(buildargs=buildargs)
+
+            config = MagicMock()
+            config.images = [image_config]
+
+            aws_client, auth_config = self.__setup_aws_client(
+                stack,
+                latest=latest_object,
+                digest_is=mimesis.Cryptographic().token_hex())
+
+            git_client = MagicMock()
+            git_client.latest_object.return_value = latest_object
+            git_client.diff_files.return_value = \
+                [mimesis.File().file_name() for x in range(10)]
+            git_client.print_diff = Exception()
+
+            mock_docker, docker_image = self.__setup_mock_docker(stack)
+
+            subject = \
+                BuildImageUseCase(
+                    config,
+                    aws_client,
+                    git_client,
+                    False,
+                    False,
+                    [])
+
+            subject.execute()
+
+        ######################################################################
+        # Should build
+        mock_docker.images.build.assert_called_with(
+            path=image_config.context,
+            dockerfile=image_config.docker_file.replace(
+                image_config.context, './'),
+            tag=image_config.repository_uri + ':latest',
+            nocache=False,
+            buildargs=buildargs)
 
         ######################################################################
         # Should tagging

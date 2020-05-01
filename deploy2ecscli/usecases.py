@@ -116,7 +116,8 @@ class BuildImageUseCase():
                 path=config.context,
                 dockerfile=config.docker_file,
                 tag=image_uri_latest,
-                nocache=self.__force_update)
+                nocache=self.__force_update,
+                buildargs=config.buildargs)
 
             output = [x for x in output if (x.get('stream') or '').strip()]
             for line in output:

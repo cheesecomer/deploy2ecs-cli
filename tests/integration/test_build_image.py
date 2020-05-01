@@ -227,7 +227,8 @@ class TestBuildImage(unittest.TestCase):
                 path='./project_dir/',
                 dockerfile='./Dockerfile',
                 tag='ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME:latest',
-                nocache=False)
+                nocache=False,
+                buildargs={})
             mock_docker.images.push.assert_called()
 
     def test_when_latest_image_not_exists(self):
@@ -289,7 +290,8 @@ class TestBuildImage(unittest.TestCase):
                 path='./project_dir/',
                 dockerfile='./Dockerfile',
                 tag='ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/REPOSITORY_NAME:latest',
-                nocache=False)
+                nocache=False,
+                buildargs={})
             mock_docker.images.push.assert_called()
 
     def test_when_already_builded(self):
