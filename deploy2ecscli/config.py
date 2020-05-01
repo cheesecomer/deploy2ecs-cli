@@ -136,6 +136,7 @@ class Service:
 
     def render_json(self, bind_variables={}) -> dict:
         default_bind_variables = {
+            'SERVICE_NAME': self.name,
             'TASK_FAMILY': self.task_family,
             'CLUSTER_NAME': self.cluster,
         }
