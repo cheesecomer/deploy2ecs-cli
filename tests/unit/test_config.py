@@ -249,6 +249,7 @@ class TestService(unittest.TestCase):
         subject = Service(**fixtures.service())
         expect = {
             mimesis.Person().username(): mimesis.Cryptographic().token_hex(),
+            'SERVICE_NAME': subject.name,
             'TASK_FAMILY': subject.task_family,
             'CLUSTER': subject.cluster,
         }
@@ -259,6 +260,7 @@ class TestService(unittest.TestCase):
 
         tmplate = """
         {0}: !Ref BIND_VALUE
+        SERVICE_NAME: !Ref SERVICE_NAME
         TASK_FAMILY: !Ref TASK_FAMILY
         CLUSTER: !Ref CLUSTER_NAME
         """
