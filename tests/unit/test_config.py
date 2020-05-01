@@ -114,6 +114,20 @@ class TestImage(unittest.TestCase):
             expect['docker_file'] = './' + expect['docker_file'].split('/')[-1]
             self.assertEqual(expect, dataclasses.asdict(actual))
 
+        with self.subTest('When with buildargs'):
+            excludes = [mimesis.File().file_name() for x in range(10)]
+            expect = fixtures.image(
+                buildargs={
+                    'TOKEN': mimesis.Cryptographic().token_hex()
+                })
+            params = expect.copy()
+            params.pop('repository_name')
+
+            actual = Image(**params)
+
+            expect['docker_file'] = './' + expect['docker_file'].split('/')[-1]
+            self.assertEqual(expect, dataclasses.asdict(actual))
+
         with self.subTest('When META character in context'):
             expect = fixtures.image(
                 context=R'\Users\included\meta.character\foo?\bar!\(and more...)\+++.txt')

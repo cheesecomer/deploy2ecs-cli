@@ -27,7 +27,7 @@ def task():
     }
 
 
-def image(context=None, excludes=[], exclude_repository_name: bool = False) -> dict:
+def image(context=None, excludes=[], buildargs=None, exclude_repository_name: bool = False) -> dict:
     repository_name = mimesis.Person().username()
     context = context or mimesis.Path().project_dir()
     context = context.replace('\\', '/')
@@ -39,7 +39,8 @@ def image(context=None, excludes=[], exclude_repository_name: bool = False) -> d
         'context': context,
         'docker_file': context + mimesis.File().file_name(),
         'dependencies': [mimesis.File().file_name() for x in range(10)],
-        'excludes': excludes
+        'excludes': excludes,
+        'buildargs': buildargs
     }
 
     if exclude_repository_name:

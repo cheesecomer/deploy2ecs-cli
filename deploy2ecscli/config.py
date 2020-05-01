@@ -21,6 +21,7 @@ class Image:
     context: str
     docker_file: str
     dependencies: List[str]
+    buildargs: dict = dataclasses.field(default_factory=dict)
     excludes: List[str] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
