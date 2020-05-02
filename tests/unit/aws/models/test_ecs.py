@@ -361,16 +361,16 @@ class TestTaskDefinition(unittest.TestCase):
                     'cpu': 0,
                     'environment': [
                         {
-                            'name': 'TZ',
-                            'value': 'Asia/Tokyo'
+                            'name': 'RAILS_ENV',
+                            'value': 'production'
                         },
                         {
                             'name': 'RAILS_LOG_TO_STDOUT',
                             'value': 'true'
                         },
                         {
-                            'name': 'RAILS_ENV',
-                            'value': 'production'
+                            'name': 'TZ',
+                            'value': 'Asia/Tokyo'
                         }
                     ],
                     'essential': True,
@@ -434,7 +434,44 @@ class TestTaskDefinition(unittest.TestCase):
                     'FARGATE'
                 ],
                 'containerDefinitions': [
-                    expect['containerDefinitions'][0]
+
+                    {
+                        'command': [
+                            'rails',
+                            'db:migrate'
+                        ],
+                        'cpu': 0,
+                        'environment': [
+                            {
+                                'name': 'RAILS_LOG_TO_STDOUT',
+                                'value': 'true'
+                            },
+                            {
+                                'name': 'TZ',
+                                'value': 'Asia/Tokyo'
+                            },
+                            {
+                                'name': 'RAILS_ENV',
+                                'value': 'production'
+                            }
+                        ],
+                        'essential': True,
+                        'image': 'AWS_ACCOUNT_ID.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                        'logConfiguration': {
+                            'logDriver': 'awslogs',
+                            'options': {
+                                'awslogs-group': '/ecs/migrate_on_docker',
+                                'awslogs-region': 'eu-west-2',
+                                'awslogs-stream-prefix': 'ecs'
+                            }
+                        },
+                        'memoryReservation': 500,
+                        'mountPoints': [],
+                        'name': 'app',
+                        'portMappings': [],
+                        'secrets': expect['containerDefinitions'][0]['secrets'],
+                        'volumesFrom': []
+                    }
                 ],
                 'cpu': '512',
                 'executionRoleArn': 'arn:aws:iam::AWS_ACCOUNT_ID:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',

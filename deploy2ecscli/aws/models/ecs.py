@@ -113,6 +113,12 @@ class TaskDefinition():
                 container_definitions.get('volumesFrom', [])
             container_definitions['essential'] = \
                 container_definitions.get('essential', True)
+            container_definitions \
+                .get('environment', []) \
+                .sort(key=lambda x: x['name'])
+            container_definitions \
+                .get('secrets', []) \
+                .sort(key=lambda x: x['name'])
         raw.pop('compatibilities', None)
         raw.pop('requiresAttributes', None)
         raw.pop('revision', None)
