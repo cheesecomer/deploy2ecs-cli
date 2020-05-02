@@ -5,6 +5,7 @@
 
 
 import dataclasses
+import copy
 from typing import Optional
 from typing import List
 
@@ -78,7 +79,7 @@ class TaskDefinition():
     tags: dict
 
     def __init__(self, json: dict):
-        tags = {x['key']: x['value'] for x in json.get('tags') or []}
+        tags = {x['key']: x['value'] for x in json.get('tags', [])}
 
         task_definition = json.get('taskDefinition', json)
         revision = int(task_definition.get('revision', '0'))
@@ -97,6 +98,26 @@ class TaskDefinition():
             'container_definitions',
             container_definitions)
         object.__setattr__(self, 'tags', tags)
+
+        raw = copy.deepcopy(task_definition)
+        raw['tags'] = json.get('tags', [])
+        raw['volumes'] = task_definition.get('volumes', [])
+        raw['placementConstraints'] = \
+            task_definition.get('placementConstraints', [])
+        for container_definitions in raw['containerDefinitions']:
+            container_definitions['mountPoints'] = \
+                container_definitions.get('mountPoints', [])
+            container_definitions['portMappings'] = \
+                container_definitions.get('portMappings', [])
+            container_definitions['volumesFrom'] = \
+                container_definitions.get('volumesFrom', [])
+            container_definitions['essential'] = \
+                container_definitions.get('essential', True)
+        raw.pop('compatibilities', None)
+        raw.pop('requiresAttributes', None)
+        raw.pop('revision', None)
+        raw.pop('status', None)
+        object.__setattr__(self, 'raw', raw)
 
     @property
     def images(self) -> List[str]:
