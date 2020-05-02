@@ -998,7 +998,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                         }
                     ],
                     'essential': True,
-                    'image': '302908666042.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                    'image': 'AWS_ACCOUNT_ID.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
                     'logConfiguration': {
                         'logDriver': 'awslogs',
                         'options': {
@@ -1021,15 +1021,15 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                 }
             ],
             'cpu': '512',
-            'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'executionRoleArn': 'arn:aws:iam::AWS_ACCOUNT_ID:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
             'family': 'migrate_on_docker',
             'memory': '1024',
             'networkMode': 'awsvpc',
             'requiresCompatibilities': [
                 'FARGATE'
             ],
-            'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
-            'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:AWS_ACCOUNT_ID:task-definition/migrate_on_docker:45',
+            'taskRoleArn': 'arn:aws:iam::AWS_ACCOUNT_ID:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
             'tags': [
                 {
                     'key': 'JSON_COMMIT_HASH',
@@ -1078,7 +1078,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                             }
                         ],
                         'essential': True,
-                        'image': '302908666042.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                        'image': 'AWS_ACCOUNT_ID.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
                         'logConfiguration': {
                             'logDriver': 'awslogs',
                             'options': {
@@ -1101,7 +1101,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                     }
                 ],
                 'cpu': '512',
-                'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'executionRoleArn': 'arn:aws:iam::AWS_ACCOUNT_ID:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
                 'family': 'migrate_on_docker',
                 'memory': '1024',
                 'networkMode': 'awsvpc',
@@ -1143,8 +1143,8 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                 ],
                 'revision': 45,
                 'status': 'ACTIVE',
-                'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
-                'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:AWS_ACCOUNT_ID:task-definition/migrate_on_docker:45',
+                'taskRoleArn': 'arn:aws:iam::AWS_ACCOUNT_ID:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
                 'volumes': []
             }
         }
@@ -1201,7 +1201,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                         }
                     ],
                     'essential': True,
-                    'image': '302908666042.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                    'image': 'AWS_ACCOUNT_ID.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
                     'logConfiguration': {
                         'logDriver': 'awslogs',
                         'options': {
@@ -1224,15 +1224,15 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                 }
             ],
             'cpu': '512',
-            'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'executionRoleArn': 'arn:aws:iam::AWS_ACCOUNT_ID:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
             'family': 'migrate_on_docker',
             'memory': '1024',
             'networkMode': 'awsvpc',
             'requiresCompatibilities': [
                 'FARGATE'
             ],
-            'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
-            'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:AWS_ACCOUNT_ID:task-definition/migrate_on_docker:45',
+            'taskRoleArn': 'arn:aws:iam::AWS_ACCOUNT_ID:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
             'tags': [
                 {
                     'key': 'JSON_COMMIT_HASH',
@@ -1281,7 +1281,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                             }
                         ],
                         'essential': True,
-                        'image': '302908666042.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                        'image': 'AWS_ACCOUNT_ID.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
                         'logConfiguration': {
                             'logDriver': 'awslogs',
                             'options': {
@@ -1299,7 +1299,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                     }
                 ],
                 'cpu': '512',
-                'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'executionRoleArn': 'arn:aws:iam::AWS_ACCOUNT_ID:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
                 'family': 'migrate_on_docker',
                 'memory': '1024',
                 'networkMode': 'awsvpc',
@@ -1341,8 +1341,8 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
                 ],
                 'revision': 45,
                 'status': 'ACTIVE',
-                'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
-                'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:AWS_ACCOUNT_ID:task-definition/migrate_on_docker:45',
+                'taskRoleArn': 'arn:aws:iam::AWS_ACCOUNT_ID:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
                 'volumes': []
             }
         }

@@ -117,6 +117,7 @@ class TaskDefinition():
         raw.pop('requiresAttributes', None)
         raw.pop('revision', None)
         raw.pop('status', None)
+        raw.pop('taskDefinitionArn', None)
         object.__setattr__(self, 'raw', raw)
 
     @property
