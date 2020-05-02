@@ -4,6 +4,7 @@
 # vi: set ft=python :
 
 import re
+import json
 
 from typing import List
 
@@ -375,22 +376,7 @@ class RegisterTaskDefinitionUseCase():
         log.newline(level=LogLevel.DEBUG)
         msg = '    Latest task revision: {0}'
         log.debug(msg.format(task_definition_b.revision))
-        in_use_images = task_definition_b.images
-        current_task_images = task_definition_a.images
 
-        shoud_update = not in_use_images == current_task_images
-        if shoud_update:
-            log.newline()
-            log.info('    Will do a update, becaus modified image UIRs')
-            differ = difflib.Differ()
-            image_diff = differ.compare(in_use_images, current_task_images)
-            for x in image_diff:
-                log.info('    %s' % x)
-
-            return True
-
-        json_commit_hash_a = \
-            task_definition_a.tags.get('JSON_COMMIT_HASH', None)
         json_commit_hash_b = \
             task_definition_b.tags.get('JSON_COMMIT_HASH', None)
 
@@ -402,29 +388,35 @@ class RegisterTaskDefinitionUseCase():
             log.newline()
             return True
 
-        shoud_update = json_commit_hash_a != json_commit_hash_b
-        if shoud_update:
-            msg = """
-            |    Will do a update, because task definition configuration has been changed
-            |      before: {0}
-            |      after : {1}
-            |"""
-            msg = msg.format(json_commit_hash_b, json_commit_hash_a)
-            log.info(msg, margin_prefix='|')
-
-            try:
-                self.__git.print_diff(
-                    json_commit_hash_b,
-                    json_commit_hash_a,
-                    json_template_path)
-            except:
-                pass
-        else:
+        json_a = json.dumps(
+            task_definition_a.raw,
+            sort_keys=True,
+            indent=4,
+            ensure_ascii=False,
+            separators=(',', ': ')) \
+            .split("\n")
+        json_b = json.dumps(
+            task_definition_b.raw,
+            sort_keys=True,
+            indent=4,
+            ensure_ascii=False,
+            separators=(',', ': ')) \
+            .split("\n")
+        differ = difflib.Differ()
+        task_definition_diff = \
+            differ.compare(
+                json_a,
+                json_b)
+        diff = set(json_a) - set(json_b)
+        if len(list(diff)):
             log.newline()
-            log.info('    Not yet modified.')
-            log.newline()
+            log.info('    Will do a update, becaus modified task definition')
+            for x in task_definition_diff:
+                log.info('    %s' % x)
 
-        return shoud_update
+            return True
+
+        return False
 
 
 class RegisterServiceUseCase():

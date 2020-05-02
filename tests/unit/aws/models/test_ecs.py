@@ -1,4 +1,5 @@
 
+import json
 import unittest
 from unittest import mock
 
@@ -346,6 +347,119 @@ class TestTaskDefinition(unittest.TestCase):
             self.assertDictEqual(
                 {key: value for key, value in tag_pairs},
                 actual.tags)
+
+    def test_raw(self):
+        self.maxDiff = None
+        git_hash = mimesis.Cryptographic().token_hex()
+        expect = {
+            'containerDefinitions': [
+                {
+                    'command': [
+                        'rails',
+                        'db:migrate'
+                    ],
+                    'cpu': 0,
+                    'environment': [
+                        {
+                            'name': 'RAILS_LOG_TO_STDOUT',
+                            'value': 'true'
+                        },
+                        {
+                            'name': 'RAILS_ENV',
+                            'value': 'production'
+                        },
+                        {
+                            'name': 'TZ',
+                            'value': 'Asia/Tokyo'
+                        }
+                    ],
+                    'essential': True,
+                    'image': '302908666042.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                    'logConfiguration': {
+                        'logDriver': 'awslogs',
+                        'options': {
+                            'awslogs-group': '/ecs/migrate_on_docker',
+                            'awslogs-region': 'eu-west-2',
+                            'awslogs-stream-prefix': 'ecs'
+                        }
+                    },
+                    'memoryReservation': 500,
+                    'mountPoints': [],
+                    'name': 'app',
+                    'portMappings': [],
+                    'secrets': [
+                        {
+                            'name': 'SECRET_KEY_BASE',
+                            'valueFrom': mimesis.Path().users_folder()
+                        }
+                    ],
+                    'volumesFrom': []
+                }
+            ],
+            'cpu': '512',
+            'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'family': 'migrate_on_docker',
+            'memory': '1024',
+            'networkMode': 'awsvpc',
+            'requiresCompatibilities': [
+                'FARGATE'
+            ],
+            'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
+            'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'tags': [
+                {
+                    'key': 'JSON_COMMIT_HASH',
+                    'value': git_hash
+                }
+            ],
+            'placementConstraints': [],
+            'volumes': []
+        }
+
+        arg = {
+            'ResponseMetadata': {
+                'HTTPHeaders': {
+                    'content-length': '1933',
+                    'content-type': 'application/x-amz-json-1.1',
+                    'date': 'Fri, 01 May 2020 14:44:44 GMT',
+                    'x-amzn-requestid': '94c0c735-abc4-4563-a0e5-a977121e915b'
+                },
+                'HTTPStatusCode': 200,
+                'RequestId': '94c0c735-abc4-4563-a0e5-a977121e915b',
+                'RetryAttempts': 0
+            },
+            'tags': expect['tags'],
+            'taskDefinition': {
+                'compatibilities': [
+                    'EC2',
+                    'FARGATE'
+                ],
+                'containerDefinitions': [
+                    expect['containerDefinitions'][0]
+                ],
+                'cpu': '512',
+                'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'family': 'migrate_on_docker',
+                'memory': '1024',
+                'networkMode': 'awsvpc',
+                'placementConstraints': [],
+                'requiresAttributes': [],
+                'requiresCompatibilities': [
+                    'FARGATE'
+                ],
+                'revision': 45,
+                'status': 'ACTIVE',
+                'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
+                'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'volumes': []
+            }
+        }
+
+        actual = TaskDefinition(arg).raw
+
+        self.assertDictEqual(
+            json.loads(json.dumps(expect, sort_keys=True)),
+            json.loads(json.dumps(actual, sort_keys=True)))
 
     def test_images(self):
         json = {

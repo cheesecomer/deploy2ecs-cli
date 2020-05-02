@@ -944,12 +944,7 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
             'value': git_hash
         })
 
-        describe_task_definition = \
-            aws_fixtures.task_definition(images=images)
-        describe_task_definition['tags'].append({
-            'key': 'JSON_COMMIT_HASH',
-            'value': git_hash
-        })
+        describe_task_definition = aws_task_definition
 
         config = MagicMock()
         config.task_definitions = [
@@ -972,6 +967,407 @@ class TestRegisterTaskDefinitionUseCase(unittest.TestCase):
 
         ######################################################################
         # Should not register task_definition
+        task_definition = aws_client.ecs.task_definition
+        task_definition.register.assert_not_called()
+
+    def test_execute_when_task_definition_not_matches(self):
+        git_hash = mimesis.Cryptographic().token_hex()
+        aws_task_definition = {
+            'requiresCompatibilities': [
+                'FARGATE'
+            ],
+            'containerDefinitions': [
+                {
+                    'command': [
+                        'rails',
+                        'db:migrate'
+                    ],
+                    'cpu': 0,
+                    'environment': [
+                        {
+                            'name': 'RAILS_LOG_TO_STDOUT',
+                            'value': 'true'
+                        },
+                        {
+                            'name': 'RAILS_ENV',
+                            'value': 'production'
+                        },
+                        {
+                            'name': 'TZ',
+                            'value': 'Asia/Tokyo'
+                        }
+                    ],
+                    'essential': True,
+                    'image': '302908666042.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                    'logConfiguration': {
+                        'logDriver': 'awslogs',
+                        'options': {
+                            'awslogs-group': '/ecs/migrate_on_docker',
+                            'awslogs-region': 'eu-west-2',
+                            'awslogs-stream-prefix': 'ecs'
+                        }
+                    },
+                    'memoryReservation': 500,
+                    'mountPoints': [],
+                    'name': 'app',
+                    'portMappings': [],
+                    'secrets': [
+                        {
+                            'name': 'SECRET_KEY_BASE',
+                            'valueFrom': mimesis.Path().users_folder()
+                        }
+                    ],
+                    'volumesFrom': []
+                }
+            ],
+            'cpu': '512',
+            'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'family': 'migrate_on_docker',
+            'memory': '1024',
+            'networkMode': 'awsvpc',
+            'requiresCompatibilities': [
+                'FARGATE'
+            ],
+            'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
+            'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'tags': [
+                {
+                    'key': 'JSON_COMMIT_HASH',
+                    'value': git_hash
+                }
+            ]
+        }
+
+        describe_task_definition = {
+            'ResponseMetadata': {
+                'HTTPHeaders': {
+                    'content-length': '1933',
+                    'content-type': 'application/x-amz-json-1.1',
+                    'date': 'Fri, 01 May 2020 14:44:44 GMT',
+                    'x-amzn-requestid': '94c0c735-abc4-4563-a0e5-a977121e915b'
+                },
+                'HTTPStatusCode': 200,
+                'RequestId': '94c0c735-abc4-4563-a0e5-a977121e915b',
+                'RetryAttempts': 0
+            },
+            'tags': aws_task_definition['tags'],
+            'taskDefinition': {
+                'compatibilities': [
+                    'EC2',
+                    'FARGATE'
+                ],
+                'containerDefinitions': [
+                    {
+                        'command': [
+                            'rails',
+                            'db:migrate'
+                        ],
+                        'cpu': 0,
+                        'environment': [
+                            {
+                                'name': 'RAILS_LOG_TO_STDOUT',
+                                'value': 'true'
+                            },
+                            {
+                                'name': 'RAILS_ENV',
+                                'value': 'production'
+                            },
+                            {
+                                'name': 'TZ',
+                                'value': 'Asia/Tokyo'
+                            }
+                        ],
+                        'essential': True,
+                        'image': '302908666042.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                        'logConfiguration': {
+                            'logDriver': 'awslogs',
+                            'options': {
+                                'awslogs-group': '/ecs/migrate_on_docker',
+                                'awslogs-region': 'eu-west-2',
+                                'awslogs-stream-prefix': 'ecs'
+                            }
+                        },
+                        'memoryReservation': 500,
+                        'mountPoints': [],
+                        'name': 'app',
+                        'portMappings': [],
+                        'secrets': [
+                            {
+                                'name': 'SECRET_KEY_BASE',
+                                'valueFrom': mimesis.Path().users_folder()
+                            }
+                        ],
+                        'volumesFrom': []
+                    }
+                ],
+                'cpu': '512',
+                'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'family': 'migrate_on_docker',
+                'memory': '1024',
+                'networkMode': 'awsvpc',
+                'placementConstraints': [],
+                'requiresAttributes': [
+                    {
+                        'name': 'com.amazonaws.ecs.capability.logging-driver.awslogs'
+                    },
+                    {
+                        'name': 'ecs.capability.execution-role-awslogs'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.ecr-auth'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.docker-remote-api.1.19'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.docker-remote-api.1.21'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.task-iam-role'
+                    },
+                    {
+                        'name': 'ecs.capability.execution-role-ecr-pull'
+                    },
+                    {
+                        'name': 'ecs.capability.secrets.ssm.environment-variables'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.docker-remote-api.1.18'
+                    },
+                    {
+                        'name': 'ecs.capability.task-eni'
+                    }
+                ],
+                'requiresCompatibilities': [
+                    'FARGATE'
+                ],
+                'revision': 45,
+                'status': 'ACTIVE',
+                'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
+                'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'volumes': []
+            }
+        }
+
+        config = MagicMock()
+        config.task_definitions = [
+            self.__setup_task_definition_confg(
+                render_json=aws_task_definition)
+        ]
+
+        aws_client = self.__setup_aws_client(
+            describe=describe_task_definition)
+
+        git_client = MagicMock()
+
+        subject = \
+            RegisterTaskDefinitionUseCase(
+                config,
+                aws_client,
+                git_client,
+                False)
+        subject.execute()
+
+        ######################################################################
+        # Should register task_definition
+        task_definition = aws_client.ecs.task_definition
+        task_definition.register.assert_called_with(aws_task_definition)
+
+    def test_execute_when_task_definition_matches(self):
+        git_hash = mimesis.Cryptographic().token_hex()
+        aws_task_definition = {
+            'requiresCompatibilities': [
+                'FARGATE'
+            ],
+            'containerDefinitions': [
+                {
+                    'command': [
+                        'rails',
+                        'db:migrate'
+                    ],
+                    'cpu': 0,
+                    'environment': [
+                        {
+                            'name': 'RAILS_LOG_TO_STDOUT',
+                            'value': 'true'
+                        },
+                        {
+                            'name': 'RAILS_ENV',
+                            'value': 'production'
+                        },
+                        {
+                            'name': 'TZ',
+                            'value': 'Asia/Tokyo'
+                        }
+                    ],
+                    'essential': True,
+                    'image': '302908666042.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                    'logConfiguration': {
+                        'logDriver': 'awslogs',
+                        'options': {
+                            'awslogs-group': '/ecs/migrate_on_docker',
+                            'awslogs-region': 'eu-west-2',
+                            'awslogs-stream-prefix': 'ecs'
+                        }
+                    },
+                    'memoryReservation': 500,
+                    'mountPoints': [],
+                    'name': 'app',
+                    'portMappings': [],
+                    'secrets': [
+                        {
+                            'name': 'SECRET_KEY_BASE',
+                            'valueFrom': mimesis.Path().users_folder()
+                        }
+                    ],
+                    'volumesFrom': []
+                }
+            ],
+            'cpu': '512',
+            'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'family': 'migrate_on_docker',
+            'memory': '1024',
+            'networkMode': 'awsvpc',
+            'requiresCompatibilities': [
+                'FARGATE'
+            ],
+            'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
+            'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+            'tags': [
+                {
+                    'key': 'JSON_COMMIT_HASH',
+                    'value': git_hash
+                }
+            ]
+        }
+
+        describe_task_definition = {
+            'ResponseMetadata': {
+                'HTTPHeaders': {
+                    'content-length': '1933',
+                    'content-type': 'application/x-amz-json-1.1',
+                    'date': 'Fri, 01 May 2020 14:44:44 GMT',
+                    'x-amzn-requestid': '94c0c735-abc4-4563-a0e5-a977121e915b'
+                },
+                'HTTPStatusCode': 200,
+                'RequestId': '94c0c735-abc4-4563-a0e5-a977121e915b',
+                'RetryAttempts': 0
+            },
+            'tags': aws_task_definition['tags'],
+            'taskDefinition': {
+                'compatibilities': [
+                    'EC2',
+                    'FARGATE'
+                ],
+                'containerDefinitions': [
+                    {
+                        'command': [
+                            'rails',
+                            'db:migrate'
+                        ],
+                        'cpu': 0,
+                        'environment': [
+                            {
+                                'name': 'RAILS_LOG_TO_STDOUT',
+                                'value': 'true'
+                            },
+                            {
+                                'name': 'RAILS_ENV',
+                                'value': 'production'
+                            },
+                            {
+                                'name': 'TZ',
+                                'value': 'Asia/Tokyo'
+                            }
+                        ],
+                        'essential': True,
+                        'image': '302908666042.dkr.ecr.eu-west-2.amazonaws.com/ecs-with-rds/app:f685a5f8e167275568d11bbdb2ab39235685f7da',
+                        'logConfiguration': {
+                            'logDriver': 'awslogs',
+                            'options': {
+                                'awslogs-group': '/ecs/migrate_on_docker',
+                                'awslogs-region': 'eu-west-2',
+                                'awslogs-stream-prefix': 'ecs'
+                            }
+                        },
+                        'memoryReservation': 500,
+                        'mountPoints': [],
+                        'name': 'app',
+                        'portMappings': [],
+                        'secrets': aws_task_definition['containerDefinitions'][0]['secrets'],
+                        'volumesFrom': []
+                    }
+                ],
+                'cpu': '512',
+                'executionRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'family': 'migrate_on_docker',
+                'memory': '1024',
+                'networkMode': 'awsvpc',
+                'placementConstraints': [],
+                'requiresAttributes': [
+                    {
+                        'name': 'com.amazonaws.ecs.capability.logging-driver.awslogs'
+                    },
+                    {
+                        'name': 'ecs.capability.execution-role-awslogs'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.ecr-auth'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.docker-remote-api.1.19'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.docker-remote-api.1.21'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.task-iam-role'
+                    },
+                    {
+                        'name': 'ecs.capability.execution-role-ecr-pull'
+                    },
+                    {
+                        'name': 'ecs.capability.secrets.ssm.environment-variables'
+                    },
+                    {
+                        'name': 'com.amazonaws.ecs.capability.docker-remote-api.1.18'
+                    },
+                    {
+                        'name': 'ecs.capability.task-eni'
+                    }
+                ],
+                'requiresCompatibilities': [
+                    'FARGATE'
+                ],
+                'revision': 45,
+                'status': 'ACTIVE',
+                'taskDefinitionArn': 'arn:aws:ecs:eu-west-2:302908666042:task-definition/migrate_on_docker:45',
+                'taskRoleArn': 'arn:aws:iam::302908666042:role/ecs-with-rds-ECSTaskExecutionRole-1V1BDABT1L4IT',
+                'volumes': []
+            }
+        }
+
+        config = MagicMock()
+        config.task_definitions = [
+            self.__setup_task_definition_confg(
+                render_json=aws_task_definition)
+        ]
+
+        aws_client = self.__setup_aws_client(
+            describe=describe_task_definition)
+
+        git_client = MagicMock()
+
+        subject = \
+            RegisterTaskDefinitionUseCase(
+                config,
+                aws_client,
+                git_client,
+                False)
+        subject.execute()
+
+        ######################################################################
+        # Should register task_definition
         task_definition = aws_client.ecs.task_definition
         task_definition.register.assert_not_called()
 
